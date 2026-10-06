@@ -1,0 +1,36 @@
+{
+	"name": "invisible-ink",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"description": "Chrome extension that reveals and removes the invisible Unicode characters hidden in text copied from AI chat and other tools.",
+	"license": "MIT",
+	"author": "Alex Ewerlöf",
+	"engines": {
+		"node": ">=22.12"
+	},
+	"scripts": {
+		"test": "vitest run",
+		"lint": "eslint .",
+		"typecheck": "tsc --noEmit",
+		"build": "node tools/build.ts",
+		"watch": "node tools/build.ts --watch",
+		"check-build": "node tools/check-build.ts",
+		"package": "npm run build && node tools/package-extension.ts",
+		"deploy-check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build && npm run check-build && node tools/package-extension.ts",
+		"format": "prettier --write .",
+		"format:check": "prettier --check ."
+	},
+	"devDependencies": {
+		"@eslint/js": "^10.0.1",
+		"@types/chrome": "^0.3.4",
+		"@types/node": "^24.12.0",
+		"eslint": "^10.11.0",
+		"eslint-config-prettier": "^10.1.8",
+		"prettier": "^3.3.3",
+		"typescript": "^5.9.3",
+		"typescript-eslint": "^8.71.0",
+		"vite": "^8.3.1",
+		"vitest": "^5.0.3"
+	}
+}

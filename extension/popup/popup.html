@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>Invisible Ink</title>
+		<link rel="stylesheet" href="popup.css" />
+	</head>
+
+	<body>
+		<article class="ii-panel">
+			<header class="ii-panel__header">
+				<div class="ii-panel__heading">
+					<h1 class="ii-panel__title">Invisible Ink</h1>
+					<p class="ii-panel__subtitle" id="subtitle">Checking this page…</p>
+				</div>
+
+				<button
+					class="ii-panel__refresh"
+					id="refresh"
+					type="button"
+					title="Re-scan this page"
+					aria-label="Re-scan this page"
+				>
+					<svg
+						class="ii-panel__refresh-icon"
+						viewBox="0 0 24 24"
+						width="16"
+						height="16"
+						aria-hidden="true"
+						focusable="false"
+					>
+						<circle
+							cx="12"
+							cy="12"
+							r="8"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-dasharray="36 14.27"
+						/>
+						<path d="M9.7 1.6 15.2 4.1 9.9 6.9Z" fill="currentColor" />
+					</svg>
+				</button>
+			</header>
+
+			<section class="ii-panel__summary" aria-live="polite">
+				<p class="ii-panel__count" id="count">0</p>
+				<p class="ii-panel__count-label" id="count-label">characters found</p>
+			</section>
+
+			<ul class="ii-panel__kinds" id="kinds"></ul>
+			<ul class="ii-panel__characters" id="characters"></ul>
+
+			<div class="ii-panel__actions">
+				<button class="ii-panel__button ii-panel__button--primary" id="reveal" type="button">Show</button>
+				<button class="ii-panel__button" id="remove" type="button">Remove</button>
+			</div>
+
+			<div class="ii-panel__nav">
+				<button class="ii-panel__nav-button" id="previous" type="button">Prev</button>
+				<p class="ii-panel__focus" id="focus-position" aria-live="polite"></p>
+				<button class="ii-panel__nav-button" id="next" type="button">Next</button>
+			</div>
+
+			<p class="ii-panel__status" id="status" role="status"></p>
+
+			<details class="ii-panel__legend">
+				<summary class="ii-panel__legend-title">What counts as hidden?</summary>
+				<ul class="ii-panel__legend-list" id="legend"></ul>
+			</details>
+		</article>
+
+		<script type="module" src="popup.ts"></script>
+	</body>
+</html>

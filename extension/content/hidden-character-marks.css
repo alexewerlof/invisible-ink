@@ -1,0 +1,92 @@
+/*
+ * Styling for the markers inserted by content/hidden-character-detector.js.
+ *
+ * manifest.json injects this file into every matching page, so the markers look
+ * the same everywhere instead of inheriting whatever the page does to spans.
+ * The page can only win against these rules by targeting our class names.
+ */
+
+/*
+ * The marker spells out the code point it stands for, such as `U+200B`, so it
+ * needs enough room for seven characters. A monospace face keeps the hex digits
+ * aligned between markers, and `nowrap` stops a line break landing inside the
+ * label.
+ *
+ * The outline is a thin ring in the marker's own colour. The translucent wash
+ * all but disappears against saturated or patterned panels, so the ring is what
+ * keeps the pill's edge readable there; drawing it in `currentColor` means the
+ * ring is always the severity colour without a second palette.
+ */
+.ii-hidden-character {
+	display: inline-block;
+	box-sizing: border-box;
+	white-space: nowrap;
+	margin: 0 0.08em;
+	padding: 0 0.25em;
+	border-radius: 0.25em;
+	outline: 1px solid currentColor;
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 0.8em;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	line-height: 1.35;
+	text-align: center;
+	vertical-align: baseline;
+	cursor: help;
+	color: #b3261e;
+	background-color: rgb(179 38 30 / 14%);
+}
+
+.ii-hidden-character--ambiguous {
+	color: #8a5a00;
+	background-color: rgb(138 90 0 / 16%);
+}
+
+.ii-hidden-character--spacing {
+	color: #1a5fb4;
+	background-color: rgb(26 95 180 / 16%);
+}
+
+@media (prefers-color-scheme: dark) {
+	.ii-hidden-character {
+		color: #ffb4ab;
+		background-color: rgb(255 180 171 / 20%);
+	}
+
+	.ii-hidden-character--ambiguous {
+		color: #f5c451;
+		background-color: rgb(245 196 81 / 20%);
+	}
+
+	.ii-hidden-character--spacing {
+		color: #9ec5ff;
+		background-color: rgb(158 197 255 / 20%);
+	}
+}
+
+/*
+ * The finding the popup's Show/Next/Prev last moved to. It thickens the base
+ * `currentColor` ring and pushes it off the pill, so the jump stands out without
+ * introducing a second colour; the pulse only adds attention.
+ */
+.ii-hidden-character--active {
+	outline: 2px solid currentColor;
+	outline-offset: 2px;
+	animation: ii-hidden-character-focus 1.1s ease-out 2;
+}
+
+@keyframes ii-hidden-character-focus {
+	from {
+		box-shadow: 0 0 0 0 rgb(179 38 30 / 55%);
+	}
+
+	to {
+		box-shadow: 0 0 0 0.7em rgb(179 38 30 / 0%);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.ii-hidden-character--active {
+		animation: none;
+	}
+}

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" xmlns:bx="https://boxy-svg.com">
+  <defs>
+    <bx:export>
+      <bx:file format="png" path="icon-16.png" colorspace="srgb" width="16" height="16"/>
+      <bx:file format="png" path="icon-32.png" colorspace="srgb" width="32" height="32"/>
+      <bx:file format="png" path="icon-48.png" width="48" height="48" colorspace="srgb"/>
+      <bx:file format="png" path="icon-128.png" width="128" height="128" colorspace="srgb"/>
+    </bx:export>
+  </defs>
+  <rect x="32" y="32" width="448" height="448" rx="84.21" ry="84.21" style="fill: rgb(255, 188, 82); stroke: rgb(0, 20, 38); stroke-width: 16px;"/>
+  <path d="M 164.496 390.291 C 143.017 390.291 125.846 385.928 112.981 377.203 C 100.116 368.477 90.831 355.948 85.126 339.615 C 79.421 323.283 76.568 303.93 76.568 281.557 L 76.568 140.269 L 114.156 140.269 L 114.156 282.228 C 114.156 308.405 118.127 327.142 126.069 338.441 C 134.012 349.74 146.821 355.389 164.496 355.389 C 182.171 355.389 194.923 349.907 202.754 338.944 C 210.585 327.981 214.5 309.076 214.5 282.228 L 214.5 140.269 L 252.423 140.269 L 252.423 281.557 C 252.423 316.012 245.263 342.748 230.944 361.765 C 216.625 380.782 194.476 390.291 164.496 390.291 Z M 346.722 356.06 L 346.722 294.309 L 283.294 294.309 L 283.294 263.434 L 346.722 263.434 L 346.722 201.684 L 379.275 201.684 L 379.275 263.434 L 443.039 263.434 L 443.039 294.309 L 379.275 294.309 L 379.275 356.06 L 346.722 356.06 Z" style="fill: rgb(0, 20, 38); text-wrap-mode: nowrap;"/>
+</svg>

@@ -1,0 +1,316 @@
+/*
+ * The popup is its own document, so the palette can live on :root without
+ * colliding with anything. Light is the default and the dark block at the end
+ * only swaps the colours.
+ */
+
+:root {
+	color-scheme: light dark;
+
+	--surface: #ffffff;
+	--surface-raised: #f6f7f9;
+	--border: #dcdfe4;
+	--text: #1f2024;
+	--text-muted: #5f6368;
+	--hidden: #b3261e;
+	--ambiguous: #8a5a00;
+	--spacing: #1a5fb4;
+	--accent: #1a5fb4;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--surface: #1b1c1f;
+		--surface-raised: #26282c;
+		--border: #3c4043;
+		--text: #e8eaed;
+		--text-muted: #9aa0a6;
+		--hidden: #ffb4ab;
+		--ambiguous: #f5c451;
+		--spacing: #9ec5ff;
+		--accent: #9ec5ff;
+	}
+}
+
+.ii-panel {
+	box-sizing: border-box;
+	width: 340px;
+	margin: 0;
+	padding: 16px;
+	background-color: var(--surface);
+	color: var(--text);
+	font-family:
+		system-ui,
+		-apple-system,
+		'Segoe UI',
+		sans-serif;
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.ii-panel__header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 14px;
+}
+
+.ii-panel__heading {
+	min-width: 0;
+}
+
+.ii-panel__refresh {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	background-color: var(--surface-raised);
+	color: var(--text-muted);
+	cursor: pointer;
+}
+
+.ii-panel__refresh:hover:not(:disabled) {
+	border-color: var(--text-muted);
+	color: var(--text);
+}
+
+.ii-panel__refresh:disabled {
+	opacity: 0.45;
+	cursor: default;
+}
+
+.ii-panel__refresh-icon {
+	display: block;
+}
+
+/* The scan a click starts can take a moment on a large page, so the icon turns
+   while the popup waits for the page to answer. */
+.ii-panel__refresh--busy .ii-panel__refresh-icon {
+	animation: ii-panel__spin 900ms linear infinite;
+}
+
+@keyframes ii-panel__spin {
+	to {
+		transform: rotate(1turn);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.ii-panel__refresh--busy .ii-panel__refresh-icon {
+		animation: none;
+	}
+}
+
+.ii-panel__title {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 600;
+	letter-spacing: 0.01em;
+}
+
+.ii-panel__subtitle {
+	margin: 2px 0 0;
+	color: var(--text-muted);
+	font-size: 12px;
+}
+
+.ii-panel__summary {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	padding: 10px 12px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background-color: var(--surface-raised);
+}
+
+.ii-panel__count {
+	margin: 0;
+	font-size: 26px;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	line-height: 1;
+}
+
+.ii-panel__count-label {
+	margin: 0;
+	color: var(--text-muted);
+	font-size: 12px;
+}
+
+.ii-panel__kinds:empty,
+.ii-panel__characters:empty {
+	display: none;
+}
+
+.ii-panel__kinds {
+	margin: 12px 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.ii-panel__kind {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 4px 0;
+	border-bottom: 1px solid var(--border);
+}
+
+.ii-panel__kind-name {
+	color: var(--text);
+}
+
+.ii-panel__kind-count {
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.ii-panel__kind--hidden .ii-panel__kind-name {
+	color: var(--hidden);
+}
+
+.ii-panel__kind--ambiguous .ii-panel__kind-name {
+	color: var(--ambiguous);
+}
+
+.ii-panel__kind--spacing .ii-panel__kind-name {
+	color: var(--spacing);
+}
+
+.ii-panel__characters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 12px 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.ii-panel__character {
+	padding: 2px 6px;
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	color: var(--text-muted);
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 11px;
+}
+
+.ii-panel__actions {
+	display: flex;
+	gap: 8px;
+	margin-top: 16px;
+}
+
+.ii-panel__button {
+	flex: 1;
+	padding: 7px 10px;
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	background-color: var(--surface-raised);
+	color: var(--text);
+	font: inherit;
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.ii-panel__button:hover:not(:disabled) {
+	border-color: var(--text-muted);
+}
+
+.ii-panel__button:disabled {
+	opacity: 0.45;
+	cursor: default;
+}
+
+.ii-panel__button--primary {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+
+.ii-panel__nav {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+.ii-panel__nav-button {
+	flex: 1;
+	padding: 5px 8px;
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	background-color: var(--surface);
+	color: var(--text);
+	font: inherit;
+	cursor: pointer;
+}
+
+.ii-panel__nav-button:hover:not(:disabled) {
+	border-color: var(--text-muted);
+}
+
+.ii-panel__nav-button:disabled {
+	opacity: 0.45;
+	cursor: default;
+}
+
+.ii-panel__focus:empty {
+	visibility: hidden;
+}
+
+.ii-panel__focus {
+	flex: 0 0 auto;
+	min-width: 5em;
+	margin: 0;
+	color: var(--text-muted);
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+	text-align: center;
+}
+
+.ii-panel__status {
+	margin: 10px 0 0;
+	min-height: 1em;
+	color: var(--text-muted);
+	font-size: 12px;
+}
+
+.ii-panel__legend {
+	margin-top: 14px;
+	border-top: 1px solid var(--border);
+	padding-top: 10px;
+}
+
+.ii-panel__legend-title {
+	color: var(--text-muted);
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.ii-panel__legend-list {
+	margin: 8px 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.ii-panel__legend-item {
+	margin-bottom: 8px;
+}
+
+.ii-panel__legend-name {
+	font-weight: 500;
+}
+
+.ii-panel__legend-note {
+	margin: 0;
+	color: var(--text-muted);
+	font-size: 11px;
+}

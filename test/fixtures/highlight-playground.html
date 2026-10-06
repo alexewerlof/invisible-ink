@@ -1,0 +1,1853 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Hidden character highlight playground</title>
+
+		<!--
+			Development-only visual harness. It is NOT part of the extension: nothing in
+			extension/ imports it, Vite never sees it, and tools/check-build.ts only looks
+			inside dist/, so it cannot end up in the packaged zip.
+
+			It links the real extension/content/hidden-character-marks.css and reproduces the
+			markup that content/hidden-character-detector.ts builds in createMarkElement(), so a
+			change to the shipped stylesheet shows up here immediately. There is no script
+			anywhere on this page.
+
+			Every hidden character is written as a numeric character reference
+			(&#xE0001;, &#x200B;) so this file stays readable and no invisible character is
+			ever stored raw in the repository.
+		-->
+
+		<link rel="stylesheet" href="../../extension/content/hidden-character-marks.css" />
+
+		<style>
+			/*
+				Page chrome only. Everything here uses the `pg-` prefix so it can never be
+				mistaken for, or collide with, the `ii-` classes that belong to the
+				extension. Nothing below styles a bare `span`, on purpose: the markers have
+				to look exactly like they do on a real page.
+			*/
+
+			:root {
+				color-scheme: light dark;
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+
+			body {
+				margin: 0;
+				padding: 0 0 72px;
+				background-color: #f2f3f5;
+				color: #1f2024;
+				font:
+					15px/1.6 system-ui,
+					-apple-system,
+					'Segoe UI',
+					sans-serif;
+			}
+
+			.pg-header {
+				padding: 22px 28px 26px;
+				background-color: #1f2024;
+				color: #f4f5f7;
+			}
+
+			.pg-header h1 {
+				margin: 0;
+				font-size: 20px;
+				font-weight: 600;
+			}
+
+			.pg-header p {
+				max-width: 80ch;
+				margin: 6px 0 0;
+				color: #c3c7ce;
+				font-size: 13px;
+			}
+
+			.pg-header kbd {
+				padding: 1px 5px;
+				border: 1px solid #4a4f57;
+				border-radius: 4px;
+				background-color: #2b2e33;
+				color: #e8eaed;
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 12px;
+			}
+
+			.pg-main {
+				display: flex;
+				flex-direction: column;
+				gap: 18px;
+				padding: 22px 28px 0;
+			}
+
+			.pg-section {
+				padding: 16px 18px 20px;
+				border: 1px solid #d5d8dd;
+				border-radius: 10px;
+				background-color: #ffffff;
+			}
+
+			.pg-section > h2 {
+				margin: 0;
+				font-size: 15px;
+				font-weight: 600;
+			}
+
+			.pg-note {
+				max-width: 92ch;
+				margin: 4px 0 14px;
+				color: #5f6368;
+				font-size: 12px;
+			}
+
+			.pg-note code,
+			.pg-template {
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+			}
+
+			.pg-template {
+				display: block;
+				overflow-x: auto;
+				margin: 0;
+				padding: 10px 12px;
+				border: 1px solid #d5d8dd;
+				border-radius: 8px;
+				background-color: #f6f7f9;
+				color: #3c4043;
+				font-size: 11px;
+				line-height: 1.5;
+				white-space: pre;
+			}
+
+			.pg-row {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 12px;
+			}
+
+			.pg-row > * {
+				flex: 1 1 240px;
+			}
+
+			.pg-panel {
+				padding: 14px 16px;
+				border-radius: 8px;
+			}
+
+			.pg-caption {
+				display: block;
+				margin: 0 0 8px;
+				color: #8a8f98;
+				font-size: 11px;
+				font-weight: 600;
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+			}
+
+			.pg-panel .pg-caption {
+				opacity: 0.75;
+			}
+
+			.pg-legend-line {
+				margin: 0 0 10px;
+			}
+
+			.pg-light-text {
+				color: #e8eaed;
+			}
+
+			.pg-muted-text {
+				color: #9aa0a6;
+			}
+
+			/* --- the individual backgrounds --- */
+
+			.pg-bg-light {
+				border: 1px solid #e4e7ea;
+				background-color: #ffffff;
+				color: #1f2024;
+			}
+
+			.pg-bg-dark {
+				background-color: #1b1c1f;
+				color: #e8eaed;
+			}
+
+			.pg-bg-raised {
+				background-color: #f6f7f9;
+				color: #1f2024;
+			}
+
+			.pg-bg-border-grey {
+				background-color: #dcdfe4;
+				color: #1f2024;
+			}
+
+			.pg-bg-mid-grey {
+				background-color: #9aa0a6;
+				color: #1f2024;
+			}
+
+			.pg-bg-low-contrast {
+				background-color: #d9dbdf;
+				color: #a8acb2;
+			}
+
+			.pg-bg-blue {
+				background-color: #1a5fb4;
+				color: #eaf1fb;
+			}
+
+			.pg-bg-red {
+				background-color: #b3261e;
+				color: #fdecea;
+			}
+
+			.pg-bg-amber {
+				background-color: #8a5a00;
+				color: #fdf3dd;
+			}
+
+			.pg-bg-green {
+				background-color: #1e6b3a;
+				color: #e6f4ec;
+			}
+
+			.pg-bg-purple {
+				background-color: #5b2a86;
+				color: #f1e8fa;
+			}
+
+			.pg-bg-gradient {
+				background-image: linear-gradient(90deg, #101114 0%, #4a4d52 50%, #f5f5f5 100%);
+				color: #1f2024;
+			}
+
+			.pg-bg-gradient-dark {
+				background-image: linear-gradient(135deg, #1a5fb4 0%, #5b2a86 45%, #8a5a00 100%);
+				color: #f4f5f7;
+			}
+
+			.pg-bg-halves {
+				background-image: linear-gradient(90deg, #1b1c1f 0 50%, #ffffff 50% 100%);
+				color: #e8eaed;
+			}
+
+			.pg-bg-image {
+				background-color: #ffffff;
+				background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M0 8 L8 0' stroke='%23808080' stroke-width='1'/%3E%3C/svg%3E");
+				color: #1f2024;
+			}
+
+			.pg-bg-photo {
+				background-color: #2b3a4a;
+				background-image:
+					repeating-linear-gradient(45deg, rgb(255 255 255 / 6%) 0 6px, transparent 6px 12px),
+					radial-gradient(120px 80px at 20% 30%, #6b7f96, transparent 70%),
+					radial-gradient(160px 100px at 80% 80%, #8a6b52, transparent 70%);
+				color: #f4f5f7;
+			}
+
+			/* --- translucency, opacity and filters --- */
+
+			.pg-glass {
+				border: 1px solid rgb(255 255 255 / 25%);
+				background-color: rgb(255 255 255 / 12%);
+				backdrop-filter: blur(6px);
+				color: #ffffff;
+			}
+
+			.pg-glass-host {
+				padding: 18px;
+				border-radius: 8px;
+				background-image: linear-gradient(120deg, #0f3d6e, #b3261e 55%, #f5c451);
+			}
+
+			.pg-opacity {
+				opacity: 0.55;
+			}
+
+			.pg-filter {
+				filter: grayscale(0.7) contrast(1.3);
+			}
+
+			.pg-blend {
+				background-color: #1b1c1f;
+				color: #e8eaed;
+				mix-blend-mode: difference;
+			}
+
+			/* --- inherited text properties --- */
+
+			.pg-inherit-serif {
+				font-family: Georgia, 'Times New Roman', serif;
+				font-size: 19px;
+				letter-spacing: 0.28em;
+				word-spacing: 0.6em;
+			}
+
+			.pg-inherit-decorated {
+				text-decoration: underline wavy #b3261e;
+				text-decoration-thickness: 2px;
+				text-underline-offset: 4px;
+			}
+
+			.pg-inherit-uppercase {
+				text-transform: uppercase;
+				letter-spacing: 0.12em;
+			}
+
+			.pg-inherit-smallcaps {
+				font-variant: small-caps;
+			}
+
+			.pg-inherit-vertical {
+				padding: 12px;
+				border: 1px dashed #b6bbc2;
+				writing-mode: vertical-rl;
+				height: 200px;
+			}
+
+			.pg-inherit-rtl {
+				direction: rtl;
+				text-align: right;
+			}
+
+			.pg-inherit-nowrap {
+				white-space: nowrap;
+				overflow-x: auto;
+			}
+
+			/* --- inline contexts --- */
+
+			.pg-inline-contexts {
+				line-height: 2;
+			}
+
+			.pg-inline-contexts > * {
+				margin: 0 0 6px;
+			}
+
+			.pg-inline-contexts h1 {
+				font-size: 26px;
+			}
+
+			.pg-inline-contexts h2 {
+				font-size: 19px;
+			}
+
+			.pg-inline-contexts code {
+				padding: 1px 4px;
+				border-radius: 4px;
+				background-color: #eceef1;
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 13px;
+			}
+
+			.pg-inline-contexts mark {
+				background-color: #f5c451;
+				color: #1f2024;
+			}
+
+			.pg-inline-contexts del {
+				color: #8a8f98;
+			}
+
+			.pg-inline-contexts button {
+				padding: 6px 12px;
+				border: 1px solid #b6bbc2;
+				border-radius: 6px;
+				background-color: #f6f7f9;
+				color: #1f2024;
+				font: inherit;
+			}
+
+			.pg-inline-contexts label {
+				display: block;
+			}
+
+			.pg-inline-contexts blockquote {
+				margin-left: 0;
+				padding: 6px 14px;
+				border-left: 3px solid #b6bbc2;
+				color: #3c4043;
+			}
+
+			.pg-inline-contexts table {
+				border-collapse: collapse;
+			}
+
+			.pg-inline-contexts th,
+			.pg-inline-contexts td {
+				padding: 4px 10px 4px 0;
+				text-align: left;
+			}
+
+			.pg-inline-contexts pre {
+				overflow-x: auto;
+				margin: 0;
+				padding: 10px 12px;
+				border-radius: 8px;
+				background-color: #f6f7f9;
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 12px;
+			}
+
+			/* --- stress cases --- */
+
+			.pg-marker-only {
+				margin: 0 0 8px;
+			}
+
+			.pg-density-run {
+				line-height: 1.9;
+			}
+
+			.pg-size-11 {
+				font-size: 11px;
+			}
+
+			.pg-size-13 {
+				font-size: 13px;
+			}
+
+			.pg-size-16 {
+				font-size: 16px;
+			}
+
+			.pg-size-24 {
+				font-size: 24px;
+			}
+
+			.pg-size-40 {
+				font-size: 40px;
+			}
+
+			.pg-line-tight {
+				line-height: 1;
+			}
+
+			.pg-line-loose {
+				line-height: 2;
+			}
+
+			.pg-active-demo {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 8px;
+				align-items: center;
+			}
+
+			.pg-before-after {
+				font-size: 14px;
+			}
+
+			.pg-before-after p {
+				margin: 0 0 10px;
+			}
+
+			.pg-narrow {
+				width: 12ch;
+				border: 1px dashed #b6bbc2;
+			}
+
+			.pg-break-anywhere {
+				overflow-wrap: anywhere;
+			}
+
+			.pg-emulation-notes ol {
+				margin: 0;
+				padding-left: 20px;
+			}
+
+			.pg-emulation-notes li {
+				margin-bottom: 6px;
+			}
+		</style>
+	</head>
+
+	<body>
+		<header class="pg-header">
+			<h1>Hidden character highlight playground</h1>
+			<p>
+				A development-only page for looking at how the extension draws the markers. It links the real
+				<code>extension/content/hidden-character-marks.css</code> and repeats the exact markup the detector
+				builds, so what you see here is what a real page shows. Every hidden character in the text below is a
+				numeric reference; nothing invisible is stored in this file. The page has no script of any kind.
+			</p>
+			<p>
+				The marker palette is chosen from <code>prefers-color-scheme</code>, which follows the browser or the
+				operating system, <strong>not the page</strong>. To see the dark palette while this page is otherwise
+				light, open DevTools &rarr; <kbd>⋮</kbd> &rarr; <em>More tools</em> &rarr; <em>Rendering</em> and set
+				<em>Emulate CSS prefers-color-scheme</em> to <em>dark</em>.
+			</p>
+		</header>
+
+		<main class="pg-main">
+			<section class="pg-section" id="pg-legend">
+				<h2>Markers and severities</h2>
+				<p class="pg-note">
+					The colour encodes how suspicious the character is: red for characters that are never needed in
+					prose, amber for ones that also appear legitimately (emoji, Persian, Indic), blue for look-alike
+					spaces. Each marker spells out the code point it replaced, such as <code>U+200B</code>, in a
+					monospace face so the hex digits line up between markers. Hover a marker for the kind of character
+					it is.
+				</p>
+				<p class="pg-legend-line">
+					invisible
+					<span
+						class="ii-hidden-character ii-hidden-character--hidden"
+						data-ii-character="&#xE0001;"
+						title="Unicode tag characters"
+						role="img"
+						aria-label="Hidden character U+E0001"
+						>U+E0001</span
+					>
+					&middot; often legitimate
+					<span
+						class="ii-hidden-character ii-hidden-character--ambiguous"
+						data-ii-character="&#x200D;"
+						title="Zero-width joiner and non-joiner"
+						role="img"
+						aria-label="Hidden character U+200D"
+						>U+200D</span
+					>
+					&middot; space variant
+					<span
+						class="ii-hidden-character ii-hidden-character--spacing"
+						data-ii-character="&#x00A0;"
+						title="Look-alike spaces"
+						role="img"
+						aria-label="Hidden character U+00A0"
+						>U+00A0</span
+					>
+				</p>
+				<p class="pg-note">
+					This is the markup <code>createMarkElement()</code> produces. In the page the hidden character is
+					<em>replaced</em> by the marker rather than sitting next to it, so the marker reads as the
+					character's code point exactly where the character used to be.
+				</p>
+				<code class="pg-template"
+					>&lt;span class="ii-hidden-character ii-hidden-character--hidden" data-ii-character="&#xE0001;"
+					title="Unicode tag characters" role="img" aria-label="Hidden character
+					U+E0001"&gt;U+E0001&lt;/span&gt;</code
+				>
+			</section>
+
+			<section class="pg-section" id="pg-baseline-light">
+				<h2>1. Baseline: light page, light palette</h2>
+				<p class="pg-note">
+					The ordinary case. Dark red, amber and blue text on their 14&ndash;16% tints over white. All three
+					should be comfortably readable.
+				</p>
+				<div class="pg-panel pg-bg-light">
+					<span class="pg-caption">#ffffff &middot; #1f2024</span>
+					<p>
+						The gap counts as
+						<span
+							class="ii-hidden-character ii-hidden-character--hidden"
+							data-ii-character="&#x200B;"
+							title="Zero-width space"
+							role="img"
+							aria-label="Hidden character U+200B"
+							>U+200B</span
+						>
+						fully successful, and the flag is a
+						<span
+							class="ii-hidden-character ii-hidden-character--ambiguous"
+							data-ii-character="&#xFE0F;"
+							title="Variation selectors"
+							role="img"
+							aria-label="Hidden character U+FE0F"
+							>U+FE0F</span
+						>
+						selector that is also used by emoji, so it stays amber. The metric never leaves
+						<span
+							class="ii-hidden-character ii-hidden-character--spacing"
+							data-ii-character="&#x2009;"
+							title="Look-alike spaces"
+							role="img"
+							aria-label="Hidden character U+2009"
+							>U+2009</span
+						>
+						the error budget.
+					</p>
+				</div>
+			</section>
+
+			<section class="pg-section" id="pg-baseline-dark">
+				<h2>2. Baseline: dark page, light palette (the reported problem)</h2>
+				<p class="pg-note">
+					This is the case from the screenshot. The panel is a dark chat bubble, but the marker colours come
+					from the light palette, because <code>prefers-color-scheme</code> is still <em>light</em>: the dark
+					red <code>#b3261e</code> and the 14% red wash sit on a near-black background. If this section is
+					hard to read, that is the bug, and the dark block at the end of the stylesheet is what would fix it
+					once the palette follows the page instead of the browser.
+				</p>
+				<div class="pg-panel pg-bg-dark">
+					<span class="pg-caption">#1b1c1f &middot; #e8eaed</span>
+					<ul>
+						<li>
+							<strong>Datadog:</strong>
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#xE0001;"
+								title="Unicode tag characters"
+								role="img"
+								aria-label="Hidden character U+E0001"
+								>U+E0001</span
+							>
+							You can configure the monitor to <strong>Evaluate as zero</strong>, forcing the metric to
+							zero and failing the SLI threshold.
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#xE0002;"
+								title="Unicode tag characters"
+								role="img"
+								aria-label="Hidden character U+E0002"
+								>U+E0002</span
+							>
+						</li>
+						<li>
+							<strong>Prometheus/Grafana:</strong> Time series naturally disappear when missing. You
+							append <code>or vector(0)</code> to the PromQL query to force the calculation to fail.
+						</li>
+						<li>
+							<strong>Assume Good (Fail-Open / Skip)</strong><br />
+							This treats the gap as 100% successful or omits the time window entirely so the error budget
+							does not burn.
+						</li>
+						<li>
+							<strong>Datadog:</strong>
+							<span
+								class="ii-hidden-character ii-hidden-character--ambiguous"
+								data-ii-character="&#x200D;"
+								title="Zero-width joiner and non-joiner"
+								role="img"
+								aria-label="Hidden character U+200D"
+								>U+200D</span
+							>
+							Configured using the <strong>Show OK</strong> setting.
+							<span
+								class="ii-hidden-character ii-hidden-character--spacing"
+								data-ii-character="&#x00A0;"
+								title="Look-alike spaces"
+								role="img"
+								aria-label="Hidden character U+00A0"
+								>U+00A0</span
+							>
+						</li>
+					</ul>
+				</div>
+			</section>
+
+			<section class="pg-section" id="pg-surfaces">
+				<h2>3. Neutral surfaces</h2>
+				<p class="pg-note">
+					Grey pages from white to mid grey, including one panel whose own text is already low contrast. On
+					the mid-grey and low-contrast panels the marker has to stay legible without the text or the wash
+					disappearing.
+				</p>
+				<div class="pg-row">
+					<div class="pg-panel pg-bg-raised">
+						<span class="pg-caption">#f6f7f9 &middot; raised</span>
+						<p>
+							A thin
+							<span
+								class="ii-hidden-character ii-hidden-character--spacing"
+								data-ii-character="&#x2009;"
+								title="Look-alike spaces"
+								role="img"
+								aria-label="Hidden character U+2009"
+								>U+2009</span
+							>
+							space inside a code sample.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-border-grey">
+						<span class="pg-caption">#dcdfe4 &middot; grey</span>
+						<p>
+							A zero-width
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#x200B;"
+								title="Zero-width space"
+								role="img"
+								aria-label="Hidden character U+200B"
+								>U+200B</span
+							>
+							separator between two words.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-mid-grey">
+						<span class="pg-caption">#9aa0a6 &middot; mid grey</span>
+						<p>
+							A soft
+							<span
+								class="ii-hidden-character ii-hidden-character--ambiguous"
+								data-ii-character="&#x00AD;"
+								title="Soft hyphen"
+								role="img"
+								aria-label="Hidden character U+00AD"
+								>U+00AD</span
+							>
+							hyphen at the end of a line.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-low-contrast">
+						<span class="pg-caption">#d9dbdf on #a8acb2 &middot; already low contrast</span>
+						<p>
+							Deliberately washed-out text with a
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#x2060;"
+								title="Word joiner and byte order mark"
+								role="img"
+								aria-label="Hidden character U+2060"
+								>U+2060</span
+							>
+							word joiner in it.
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section class="pg-section" id="pg-accent-panels">
+				<h2>4. Saturated panels where the marker colour collides with the background</h2>
+				<p class="pg-note">
+					Callouts, banners and code blocks are often painted in exactly the red, amber or blue the marker
+					uses. On the red panel a red marker should vanish; on the blue panel a blue one should. These are
+					the cases a <code>prefers-color-scheme</code> palette cannot see.
+				</p>
+				<div class="pg-row">
+					<div class="pg-panel pg-bg-blue">
+						<span class="pg-caption">#1a5fb4 &middot; same as the spacing colour</span>
+						<p>
+							Blue panel with a
+							<span
+								class="ii-hidden-character ii-hidden-character--spacing"
+								data-ii-character="&#x00A0;"
+								title="Look-alike spaces"
+								role="img"
+								aria-label="Hidden character U+00A0"
+								>U+00A0</span
+							>
+							space variant and a
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#x200B;"
+								title="Zero-width space"
+								role="img"
+								aria-label="Hidden character U+200B"
+								>U+200B</span
+							>
+							zero-width space.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-red">
+						<span class="pg-caption">#b3261e &middot; same as the hidden colour</span>
+						<p>
+							Red panel with an
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#xE0001;"
+								title="Unicode tag characters"
+								role="img"
+								aria-label="Hidden character U+E0001"
+								>U+E0001</span
+							>
+							invisible marker and an
+							<span
+								class="ii-hidden-character ii-hidden-character--ambiguous"
+								data-ii-character="&#xFE0F;"
+								title="Variation selectors"
+								role="img"
+								aria-label="Hidden character U+FE0F"
+								>U+FE0F</span
+							>
+							amber one.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-amber">
+						<span class="pg-caption">#8a5a00 &middot; same as the ambiguous colour</span>
+						<p>
+							Amber panel with an
+							<span
+								class="ii-hidden-character ii-hidden-character--ambiguous"
+								data-ii-character="&#x200D;"
+								title="Zero-width joiner and non-joiner"
+								role="img"
+								aria-label="Hidden character U+200D"
+								>U+200D</span
+							>
+							ambiguous marker.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-green">
+						<span class="pg-caption">#1e6b3a &middot; green</span>
+						<p>
+							Green panel with a
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#x2060;"
+								title="Word joiner and byte order mark"
+								role="img"
+								aria-label="Hidden character U+2060"
+								>U+2060</span
+							>
+							word joiner.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-purple">
+						<span class="pg-caption">#5b2a86 &middot; purple</span>
+						<p>
+							Purple panel with an
+							<span
+								class="ii-hidden-character ii-hidden-character--spacing"
+								data-ii-character="&#x3000;"
+								title="Look-alike spaces"
+								role="img"
+								aria-label="Hidden character U+3000"
+								>U+3000</span
+							>
+							ideographic space.
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section class="pg-section" id="pg-gradients">
+				<h2>5. Gradients and split backgrounds</h2>
+				<p class="pg-note">
+					No single background colour to test against: the same paragraph runs from near-black to white, and a
+					marker can straddle the boundary. A palette picked from <code>prefers-color-scheme</code> has to be
+					readable at both ends.
+				</p>
+				<div class="pg-row">
+					<div class="pg-panel pg-bg-gradient">
+						<span class="pg-caption">dark &rarr; light</span>
+						<p>
+							A zero-width
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#x200B;"
+								title="Zero-width space"
+								role="img"
+								aria-label="Hidden character U+200B"
+								>U+200B</span
+							>
+							space on the dark end and a thin
+							<span
+								class="ii-hidden-character ii-hidden-character--spacing"
+								data-ii-character="&#x2009;"
+								title="Look-alike spaces"
+								role="img"
+								aria-label="Hidden character U+2009"
+								>U+2009</span
+							>
+							space on the light end.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-gradient-dark">
+						<span class="pg-caption">multi-hue</span>
+						<p>
+							A tag payload
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#xE0001;"
+								title="Unicode tag characters"
+								role="img"
+								aria-label="Hidden character U+E0001"
+								>U+E0001</span
+							>
+							over blue, purple and amber.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-halves">
+						<span class="pg-caption">hard half/half split</span>
+						<p>
+							Dark side
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#xE0002;"
+								title="Unicode tag characters"
+								role="img"
+								aria-label="Hidden character U+E0002"
+								>U+E0002</span
+							>
+							and light side, in one line.
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section class="pg-section" id="pg-image-background">
+				<h2>6. Patterned and photographic backgrounds</h2>
+				<p class="pg-note">
+					An inline SVG stripe pattern and a busy multi-stop background: a translucent wash disappears against
+					texture, and the label and its colour have to carry the meaning on their own.
+				</p>
+				<div class="pg-row">
+					<div class="pg-panel pg-bg-image">
+						<span class="pg-caption">svg stripe pattern</span>
+						<p>
+							A word joiner
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#x2060;"
+								title="Word joiner and byte order mark"
+								role="img"
+								aria-label="Hidden character U+2060"
+								>U+2060</span
+							>
+							over diagonal stripes.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-photo">
+						<span class="pg-caption">busy multi-stop</span>
+						<p>
+							A soft hyphen
+							<span
+								class="ii-hidden-character ii-hidden-character--ambiguous"
+								data-ii-character="&#x00AD;"
+								title="Soft hyphen"
+								role="img"
+								aria-label="Hidden character U+00AD"
+								>U+00AD</span
+							>
+							over a patchy background.
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section class="pg-section" id="pg-translucent">
+				<h2>7. Translucency, opacity and filters</h2>
+				<p class="pg-note">
+					Anything that changes how the text is composited changes the contrast the marker actually achieves:
+					a <code>backdrop-filter</code> card, a parent with <code>opacity</code>, and a parent with a CSS
+					<code>filter</code> all do it.
+				</p>
+				<div class="pg-row">
+					<div class="pg-glass-host">
+						<div class="pg-panel pg-glass">
+							<span class="pg-caption">glass card, backdrop-filter</span>
+							<p>
+								A tag payload
+								<span
+									class="ii-hidden-character ii-hidden-character--hidden"
+									data-ii-character="&#xE0001;"
+									title="Unicode tag characters"
+									role="img"
+									aria-label="Hidden character U+E0001"
+									>U+E0001</span
+								>
+								behind frosted glass.
+							</p>
+						</div>
+					</div>
+					<div class="pg-panel pg-bg-dark pg-opacity">
+						<span class="pg-caption">parent opacity: 0.55</span>
+						<p>
+							A mid-sentence
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#x200B;"
+								title="Zero-width space"
+								role="img"
+								aria-label="Hidden character U+200B"
+								>U+200B</span
+							>
+							zero-width space.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-light pg-filter">
+						<span class="pg-caption">parent filter: grayscale(0.7) contrast(1.3)</span>
+						<p>
+							A thin
+							<span
+								class="ii-hidden-character ii-hidden-character--spacing"
+								data-ii-character="&#x2009;"
+								title="Look-alike spaces"
+								role="img"
+								aria-label="Hidden character U+2009"
+								>U+2009</span
+							>
+							space behind a filter.
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section class="pg-section" id="pg-inherited">
+				<h2>8. Inherited text properties</h2>
+				<p class="pg-note">
+					The marker sets its own font family and size but everything else is inherited, so a page that
+					stretches, spaces or decorates its text stretches the marker too.
+				</p>
+				<div class="pg-row">
+					<div class="pg-panel pg-bg-light pg-inherit-serif">
+						<span class="pg-caption">serif, letter-spacing 0.28em, word-spacing 0.6em</span>
+						<p>
+							A tag
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#xE0001;"
+								title="Unicode tag characters"
+								role="img"
+								aria-label="Hidden character U+E0001"
+								>U+E0001</span
+							>
+							payload in spaced serif text.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-light pg-inherit-uppercase pg-inherit-smallcaps">
+						<span class="pg-caption">uppercase + small-caps</span>
+						<p>
+							A zero-width
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#x200B;"
+								title="Zero-width space"
+								role="img"
+								aria-label="Hidden character U+200B"
+								>U+200B</span
+							>
+							space in shouting text.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-light pg-inherit-decorated">
+						<span class="pg-caption">wavy underline</span>
+						<p>
+							A decorat
+							<span
+								class="ii-hidden-character ii-hidden-character--ambiguous"
+								data-ii-character="&#x00AD;"
+								title="Soft hyphen"
+								role="img"
+								aria-label="Hidden character U+00AD"
+								>U+00AD</span
+							>
+							ed word with a wavy underline.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-light pg-inherit-rtl">
+						<span class="pg-caption">direction: rtl</span>
+						<p>
+							RTL text
+							<span
+								class="ii-hidden-character ii-hidden-character--ambiguous"
+								data-ii-character="&#x202E;"
+								title="Bidirectional controls"
+								role="img"
+								aria-label="Hidden character U+202E"
+								>U+202E</span
+							>
+							with a bidi override in it.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-light pg-inherit-nowrap">
+						<span class="pg-caption">white-space: nowrap, scrolls sideways</span>
+						<p>
+							One long unbroken line
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#x2060;"
+								title="Word joiner and byte order mark"
+								role="img"
+								aria-label="Hidden character U+2060"
+								>U+2060</span
+							>
+							that cannot wrap at all, so it overflows instead.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-light pg-inherit-vertical">
+						<span class="pg-caption">writing-mode: vertical-rl</span>
+						<p>
+							Vertical
+							<span
+								class="ii-hidden-character ii-hidden-character--spacing"
+								data-ii-character="&#x3000;"
+								title="Look-alike spaces"
+								role="img"
+								aria-label="Hidden character U+3000"
+								>U+3000</span
+							>
+							text
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section class="pg-section" id="pg-inline-contexts">
+				<h2>9. Inline contexts</h2>
+				<p class="pg-note">
+					Headings, links, code, buttons, table cells and other places where a marker shares a line with
+					something that has its own size, weight or background.
+				</p>
+				<div class="pg-inline-contexts">
+					<h1>
+						Heading with a
+						<span
+							class="ii-hidden-character ii-hidden-character--hidden"
+							data-ii-character="&#x200B;"
+							title="Zero-width space"
+							role="img"
+							aria-label="Hidden character U+200B"
+							>U+200B</span
+						>
+						zero-width space
+					</h1>
+					<h2>
+						Subheading with a
+						<span
+							class="ii-hidden-character ii-hidden-character--ambiguous"
+							data-ii-character="&#xFE0F;"
+							title="Variation selectors"
+							role="img"
+							aria-label="Hidden character U+FE0F"
+							>U+FE0F</span
+						>
+						selector
+					</h2>
+					<p>
+						<strong
+							>Bold<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#xE0001;"
+								title="Unicode tag characters"
+								role="img"
+								aria-label="Hidden character U+E0001"
+								>U+E0001</span
+							></strong
+						>
+						and
+						<em
+							>italic<span
+								class="ii-hidden-character ii-hidden-character--ambiguous"
+								data-ii-character="&#x200D;"
+								title="Zero-width joiner and non-joiner"
+								role="img"
+								aria-label="Hidden character U+200D"
+								>U+200D</span
+							></em
+						>
+						and
+						<a href="#pg-inline-contexts"
+							>a link<span
+								class="ii-hidden-character ii-hidden-character--spacing"
+								data-ii-character="&#x2009;"
+								title="Look-alike spaces"
+								role="img"
+								aria-label="Hidden character U+2009"
+								>U+2009</span
+							></a
+						>
+						and
+						<code
+							>or vector(0)<span
+								class="ii-hidden-character ii-hidden-character--spacing"
+								data-ii-character="&#x00A0;"
+								title="Look-alike spaces"
+								role="img"
+								aria-label="Hidden character U+00A0"
+								>U+00A0</span
+							></code
+						>
+						in code.
+					</p>
+					<p>
+						<del
+							>Removed<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#x2060;"
+								title="Word joiner and byte order mark"
+								role="img"
+								aria-label="Hidden character U+2060"
+								>U+2060</span
+							></del
+						>
+						and
+						<mark
+							>highlighted<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#x200B;"
+								title="Zero-width space"
+								role="img"
+								aria-label="Hidden character U+200B"
+								>U+200B</span
+							></mark
+						>.
+					</p>
+					<table>
+						<tr>
+							<th>Setting</th>
+							<th>Value</th>
+						</tr>
+						<tr>
+							<td>
+								Evaluate as zero
+								<span
+									class="ii-hidden-character ii-hidden-character--hidden"
+									data-ii-character="&#xE0002;"
+									title="Unicode tag characters"
+									role="img"
+									aria-label="Hidden character U+E0002"
+									>U+E0002</span
+								>
+							</td>
+							<td>
+								true
+								<span
+									class="ii-hidden-character ii-hidden-character--spacing"
+									data-ii-character="&#x00A0;"
+									title="Look-alike spaces"
+									role="img"
+									aria-label="Hidden character U+00A0"
+									>U+00A0</span
+								>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								Show OK
+								<span
+									class="ii-hidden-character ii-hidden-character--ambiguous"
+									data-ii-character="&#x00AD;"
+									title="Soft hyphen"
+									role="img"
+									aria-label="Hidden character U+00AD"
+									>U+00AD</span
+								>
+							</td>
+							<td>false</td>
+						</tr>
+					</table>
+					<ul>
+						<li>
+							A list item with a
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#x200B;"
+								title="Zero-width space"
+								role="img"
+								aria-label="Hidden character U+200B"
+								>U+200B</span
+							>
+							marker.
+						</li>
+					</ul>
+					<p>
+						<button type="button">
+							Button with a
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#xE0001;"
+								title="Unicode tag characters"
+								role="img"
+								aria-label="Hidden character U+E0001"
+								>U+E0001</span
+							>
+							marker
+						</button>
+					</p>
+					<p>
+						<label
+							>Label with a
+							<span
+								class="ii-hidden-character ii-hidden-character--spacing"
+								data-ii-character="&#x2009;"
+								title="Look-alike spaces"
+								role="img"
+								aria-label="Hidden character U+2009"
+								>U+2009</span
+							>
+							marker</label
+						>
+					</p>
+					<blockquote>
+						A quote with a
+						<span
+							class="ii-hidden-character ii-hidden-character--ambiguous"
+							data-ii-character="&#x200D;"
+							title="Zero-width joiner and non-joiner"
+							role="img"
+							aria-label="Hidden character U+200D"
+							>U+200D</span
+						>
+						joiner in it.
+					</blockquote>
+					<pre>
+const x = 1<span class="ii-hidden-character ii-hidden-character--hidden" data-ii-character="&#xE0001;" title="Unicode tag characters" role="img" aria-label="Hidden character U+E0001">U+E0001</span>
+const y = "a very long line that forces the pre block to scroll sideways so the marker lands in overflow territory"</pre>
+				</div>
+			</section>
+
+			<section class="pg-section" id="pg-density">
+				<h2>10. Density and adjacency</h2>
+				<p class="pg-note">
+					A marker replaces a zero-width character, so several of them can end up touching each other with no
+					space between, or filling a line on their own.
+				</p>
+				<p class="pg-marker-only">
+					<!-- prettier-ignore -->
+					<span class="ii-hidden-character ii-hidden-character--hidden" data-ii-character="&#x200B;"
+					title="Zero-width space" role="img" aria-label="Hidden character U+200B">U+200B</span>
+				</p>
+				<p class="pg-note">A paragraph that contains nothing but one marker.</p>
+				<p class="pg-density-run">
+					<!-- prettier-ignore -->
+					Three back to back:<span
+						class="ii-hidden-character ii-hidden-character--hidden"
+						data-ii-character="&#x200B;"
+						title="Zero-width space"
+						role="img"
+						aria-label="Hidden character U+200B"
+						>U+200B</span
+					><span
+						class="ii-hidden-character ii-hidden-character--hidden"
+						data-ii-character="&#x200B;"
+						title="Zero-width space"
+						role="img"
+						aria-label="Hidden character U+200B"
+						>U+200B</span
+					><span
+						class="ii-hidden-character ii-hidden-character--hidden"
+						data-ii-character="&#x200B;"
+						title="Zero-width space"
+						role="img"
+						aria-label="Hidden character U+200B"
+						>U+200B</span
+					>then words again.
+				</p>
+				<p class="pg-note">
+					A long run of adjacent markers, to check that they wrap as a group and never overlap.
+				</p>
+				<p class="pg-density-run">
+					<!-- prettier-ignore -->
+					<span class="ii-hidden-character ii-hidden-character--hidden" data-ii-character="&#xE0001;"
+					title="Unicode tag characters" role="img" aria-label="Hidden character U+E0001">U+E0001</span
+					><span
+						class="ii-hidden-character ii-hidden-character--ambiguous"
+						data-ii-character="&#x200D;"
+						title="Zero-width joiner and non-joiner"
+						role="img"
+						aria-label="Hidden character U+200D"
+						>U+200D</span
+					><span
+						class="ii-hidden-character ii-hidden-character--spacing"
+						data-ii-character="&#x00A0;"
+						title="Look-alike spaces"
+						role="img"
+						aria-label="Hidden character U+00A0"
+						>U+00A0</span
+					><span
+						class="ii-hidden-character ii-hidden-character--hidden"
+						data-ii-character="&#xE0001;"
+						title="Unicode tag characters"
+						role="img"
+						aria-label="Hidden character U+E0001"
+						>U+E0001</span
+					><span
+						class="ii-hidden-character ii-hidden-character--ambiguous"
+						data-ii-character="&#x200D;"
+						title="Zero-width joiner and non-joiner"
+						role="img"
+						aria-label="Hidden character U+200D"
+						>U+200D</span
+					><span
+						class="ii-hidden-character ii-hidden-character--spacing"
+						data-ii-character="&#x00A0;"
+						title="Look-alike spaces"
+						role="img"
+						aria-label="Hidden character U+00A0"
+						>U+00A0</span
+					><span
+						class="ii-hidden-character ii-hidden-character--hidden"
+						data-ii-character="&#xE0001;"
+						title="Unicode tag characters"
+						role="img"
+						aria-label="Hidden character U+E0001"
+						>U+E0001</span
+					><span
+						class="ii-hidden-character ii-hidden-character--ambiguous"
+						data-ii-character="&#x200D;"
+						title="Zero-width joiner and non-joiner"
+						role="img"
+						aria-label="Hidden character U+200D"
+						>U+200D</span
+					><span
+						class="ii-hidden-character ii-hidden-character--spacing"
+						data-ii-character="&#x00A0;"
+						title="Look-alike spaces"
+						role="img"
+						aria-label="Hidden character U+00A0"
+						>U+00A0</span
+					><span
+						class="ii-hidden-character ii-hidden-character--hidden"
+						data-ii-character="&#xE0001;"
+						title="Unicode tag characters"
+						role="img"
+						aria-label="Hidden character U+E0001"
+						>U+E0001</span
+					><span
+						class="ii-hidden-character ii-hidden-character--ambiguous"
+						data-ii-character="&#x200D;"
+						title="Zero-width joiner and non-joiner"
+						role="img"
+						aria-label="Hidden character U+200D"
+						>U+200D</span
+					><span
+						class="ii-hidden-character ii-hidden-character--spacing"
+						data-ii-character="&#x00A0;"
+						title="Look-alike spaces"
+						role="img"
+						aria-label="Hidden character U+00A0"
+						>U+00A0</span
+					>
+				</p>
+				<p>
+					A marker at the start of a line
+					<span
+						class="ii-hidden-character ii-hidden-character--hidden"
+						data-ii-character="&#x200B;"
+						title="Zero-width space"
+						role="img"
+						aria-label="Hidden character U+200B"
+						>U+200B</span
+					>
+					and one at the end of the same line
+					<span
+						class="ii-hidden-character ii-hidden-character--spacing"
+						data-ii-character="&#x2009;"
+						title="Look-alike spaces"
+						role="img"
+						aria-label="Hidden character U+2009"
+						>U+2009</span
+					>
+				</p>
+				<p>
+					Between punctuation: (<span
+						class="ii-hidden-character ii-hidden-character--hidden"
+						data-ii-character="&#x2060;"
+						title="Word joiner and byte order mark"
+						role="img"
+						aria-label="Hidden character U+2060"
+						>U+2060</span
+					>), [<span
+						class="ii-hidden-character ii-hidden-character--ambiguous"
+						data-ii-character="&#x00AD;"
+						title="Soft hyphen"
+						role="img"
+						aria-label="Hidden character U+00AD"
+						>U+00AD</span
+					>] and after <strong>bold text</strong
+					><span
+						class="ii-hidden-character ii-hidden-character--hidden"
+						data-ii-character="&#x200B;"
+						title="Zero-width space"
+						role="img"
+						aria-label="Hidden character U+200B"
+						>U+200B</span
+					>.
+				</p>
+			</section>
+
+			<section class="pg-section" id="pg-sizing">
+				<h2>11. Type size and line height</h2>
+				<p class="pg-note">
+					The marker is <code>0.8em</code> with a monospace label, so it scales with the text. At
+					<code>line-height: 1</code> it is taller than the line box; at 40px the label and the wash have much
+					more area to look at.
+				</p>
+				<div class="pg-row">
+					<div class="pg-panel pg-bg-light pg-size-11">
+						<span class="pg-caption">11px</span>
+						<p>
+							11px text with a
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#x200B;"
+								title="Zero-width space"
+								role="img"
+								aria-label="Hidden character U+200B"
+								>U+200B</span
+							>
+							marker.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-light pg-size-13">
+						<span class="pg-caption">13px</span>
+						<p>
+							13px text with an
+							<span
+								class="ii-hidden-character ii-hidden-character--ambiguous"
+								data-ii-character="&#x200D;"
+								title="Zero-width joiner and non-joiner"
+								role="img"
+								aria-label="Hidden character U+200D"
+								>U+200D</span
+							>
+							marker.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-light pg-size-16 pg-line-loose">
+						<span class="pg-caption">16px, line-height 2</span>
+						<p>
+							16px text with a
+							<span
+								class="ii-hidden-character ii-hidden-character--spacing"
+								data-ii-character="&#x2009;"
+								title="Look-alike spaces"
+								role="img"
+								aria-label="Hidden character U+2009"
+								>U+2009</span
+							>
+							marker.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-light pg-size-24 pg-line-tight">
+						<span class="pg-caption">24px, line-height 1</span>
+						<p>
+							24px tight with a
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#xE0001;"
+								title="Unicode tag characters"
+								role="img"
+								aria-label="Hidden character U+E0001"
+								>U+E0001</span
+							>
+							marker.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-light pg-size-40">
+						<span class="pg-caption">40px</span>
+						<p>
+							Big
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#x2060;"
+								title="Word joiner and byte order mark"
+								role="img"
+								aria-label="Hidden character U+2060"
+								>U+2060</span
+							>
+							marker.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-light">
+						<span class="pg-caption">zoom / transform: scale()</span>
+						<p style="transform: scale(1.4); transform-origin: left center">
+							Scaled text with a
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#x200B;"
+								title="Zero-width space"
+								role="img"
+								aria-label="Hidden character U+200B"
+								>U+200B</span
+							>
+							marker, and one more
+							<span
+								class="ii-hidden-character ii-hidden-character--spacing"
+								data-ii-character="&#x00A0;"
+								title="Look-alike spaces"
+								role="img"
+								aria-label="Hidden character U+00A0"
+								>U+00A0</span
+							>
+							after it.
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section class="pg-section" id="pg-active">
+				<h2>12. The active highlight (Show / Prev / Next)</h2>
+				<p class="pg-note">
+					The marker the popup last jumped to gets <code>ii-hidden-character--active</code>, drawn as a
+					<code>currentColor</code> ring plus a pulse. The ring should follow each severity's own colour. The
+					pulse shadow is currently hard-coded red, so watch the amber and blue markers in the row.
+				</p>
+				<div class="pg-active-demo">
+					<span
+						class="ii-hidden-character ii-hidden-character--hidden ii-hidden-character--active"
+						data-ii-character="&#xE0001;"
+						title="Unicode tag characters"
+						role="img"
+						aria-label="Hidden character U+E0001"
+						>U+E0001</span
+					>
+					<span
+						class="ii-hidden-character ii-hidden-character--ambiguous ii-hidden-character--active"
+						data-ii-character="&#x200D;"
+						title="Zero-width joiner and non-joiner"
+						role="img"
+						aria-label="Hidden character U+200D"
+						>U+200D</span
+					>
+					<span
+						class="ii-hidden-character ii-hidden-character--spacing ii-hidden-character--active"
+						data-ii-character="&#x00A0;"
+						title="Look-alike spaces"
+						role="img"
+						aria-label="Hidden character U+00A0"
+						>U+00A0</span
+					>
+				</div>
+				<p class="pg-note" style="margin-top: 14px">
+					The same three on a dark page, where the ring and the pulse have to be visible against near-black.
+				</p>
+				<div class="pg-panel pg-bg-dark pg-active-demo">
+					<span
+						class="ii-hidden-character ii-hidden-character--hidden ii-hidden-character--active"
+						data-ii-character="&#x200B;"
+						title="Zero-width space"
+						role="img"
+						aria-label="Hidden character U+200B"
+						>U+200B</span
+					>
+					<span
+						class="ii-hidden-character ii-hidden-character--ambiguous ii-hidden-character--active"
+						data-ii-character="&#x00AD;"
+						title="Soft hyphen"
+						role="img"
+						aria-label="Hidden character U+00AD"
+						>U+00AD</span
+					>
+					<span
+						class="ii-hidden-character ii-hidden-character--spacing ii-hidden-character--active"
+						data-ii-character="&#x2009;"
+						title="Look-alike spaces"
+						role="img"
+						aria-label="Hidden character U+2009"
+						>U+2009</span
+					>
+				</div>
+			</section>
+
+			<section class="pg-section" id="pg-before-after">
+				<h2>13. Before and after Show</h2>
+				<p class="pg-note">
+					The first paragraph holds the real hidden characters, so it looks like ordinary prose. The second is
+					the same text after <em>Show</em>: each hidden character became a marker. The two should have the
+					same length and line breaks.
+				</p>
+				<div class="pg-before-after">
+					<span class="pg-caption">before &mdash; hidden characters are invisible</span>
+					<p>
+						Treats workflows as directed graphs.&#xE001;&#xE801;&#xE002;&#xE802;&#xE003;&#xE803; Features
+						include human-in-the-loop (HITL) pause/resume, time-travel debugging, and granular state
+						control. Zero&#x200B;width&#xFEFF;separators and a&nbsp;no-break&#x2009;space too.
+					</p>
+					<span class="pg-caption">after &mdash; the same characters as markers</span>
+					<p>
+						Treats workflows as directed graphs.<span
+							class="ii-hidden-character ii-hidden-character--hidden"
+							data-ii-character="&#xE001;"
+							title="Private use characters"
+							role="img"
+							aria-label="Hidden character U+E001"
+							>U+E001</span
+						><span
+							class="ii-hidden-character ii-hidden-character--hidden"
+							data-ii-character="&#xE801;"
+							title="Private use characters"
+							role="img"
+							aria-label="Hidden character U+E801"
+							>U+E801</span
+						><span
+							class="ii-hidden-character ii-hidden-character--hidden"
+							data-ii-character="&#xE002;"
+							title="Private use characters"
+							role="img"
+							aria-label="Hidden character U+E002"
+							>U+E002</span
+						><span
+							class="ii-hidden-character ii-hidden-character--hidden"
+							data-ii-character="&#xE802;"
+							title="Private use characters"
+							role="img"
+							aria-label="Hidden character U+E802"
+							>U+E802</span
+						><span
+							class="ii-hidden-character ii-hidden-character--hidden"
+							data-ii-character="&#xE003;"
+							title="Private use characters"
+							role="img"
+							aria-label="Hidden character U+E003"
+							>U+E003</span
+						><span
+							class="ii-hidden-character ii-hidden-character--hidden"
+							data-ii-character="&#xE803;"
+							title="Private use characters"
+							role="img"
+							aria-label="Hidden character U+E803"
+							>U+E803</span
+						>
+						Features include human-in-the-loop (HITL) pause/resume, time-travel debugging, and granular
+						state control. Zero<span
+							class="ii-hidden-character ii-hidden-character--hidden"
+							data-ii-character="&#x200B;"
+							title="Zero-width space"
+							role="img"
+							aria-label="Hidden character U+200B"
+							>U+200B</span
+						>width<span
+							class="ii-hidden-character ii-hidden-character--hidden"
+							data-ii-character="&#xFEFF;"
+							title="Word joiner and byte order mark"
+							role="img"
+							aria-label="Hidden character U+FEFF"
+							>U+FEFF</span
+						>separators and a<span
+							class="ii-hidden-character ii-hidden-character--spacing"
+							data-ii-character="&#x00A0;"
+							title="Look-alike spaces"
+							role="img"
+							aria-label="Hidden character U+00A0"
+							>U+00A0</span
+						>no-break<span
+							class="ii-hidden-character ii-hidden-character--spacing"
+							data-ii-character="&#x2009;"
+							title="Look-alike spaces"
+							role="img"
+							aria-label="Hidden character U+2009"
+							>U+2009</span
+						>space too.
+					</p>
+				</div>
+			</section>
+
+			<section class="pg-section" id="pg-rtl">
+				<h2>14. Right-to-left text</h2>
+				<p class="pg-note">
+					In RTL text the marker is laid out from the right, and a bidirectional control marker sits in a
+					paragraph whose direction it changes.
+				</p>
+				<div class="pg-panel pg-bg-light pg-inherit-rtl">
+					<span class="pg-caption">dir="rtl"</span>
+					<p>
+						هذا نص عربي
+						<span
+							class="ii-hidden-character ii-hidden-character--ambiguous"
+							data-ii-character="&#x200F;"
+							title="Bidirectional controls"
+							role="img"
+							aria-label="Hidden character U+200F"
+							>U+200F</span
+						>
+						يحتوي على علامة.
+					</p>
+					<p>
+						Mixed English and العربية with a
+						<span
+							class="ii-hidden-character ii-hidden-character--hidden"
+							data-ii-character="&#x2066;"
+							title="Bidirectional controls"
+							role="img"
+							aria-label="Hidden character U+2066"
+							>U+2066</span
+						>
+						isolate marker.
+					</p>
+				</div>
+			</section>
+
+			<section class="pg-section" id="pg-wrapping">
+				<h2>15. Narrow columns and unbreakable tokens</h2>
+				<p class="pg-note">
+					The marker is <code>inline-block</code>, so it is an atomic box: in a very narrow column it must not
+					be split, and inside a token that is allowed to break anywhere it must not be lost.
+				</p>
+				<div class="pg-row">
+					<div class="pg-panel pg-bg-light pg-narrow">
+						<span class="pg-caption">12ch wide</span>
+						<p>
+							Very narrow text with a
+							<span
+								class="ii-hidden-character ii-hidden-character--hidden"
+								data-ii-character="&#xE0001;"
+								title="Unicode tag characters"
+								role="img"
+								aria-label="Hidden character U+E0001"
+								>U+E0001</span
+							>
+							marker in it.
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-light pg-break-anywhere pg-narrow">
+						<span class="pg-caption">overflow-wrap: anywhere</span>
+						<p>
+							averylongunbroken
+							<span
+								class="ii-hidden-character ii-hidden-character--spacing"
+								data-ii-character="&#x2009;"
+								title="Look-alike spaces"
+								role="img"
+								aria-label="Hidden character U+2009"
+								>U+2009</span
+							>
+							token
+						</p>
+					</div>
+					<div class="pg-panel pg-bg-dark pg-narrow">
+						<span class="pg-caption">12ch wide on dark</span>
+						<p>
+							Narrow and dark with a
+							<span
+								class="ii-hidden-character ii-hidden-character--ambiguous"
+								data-ii-character="&#x200D;"
+								title="Zero-width joiner and non-joiner"
+								role="img"
+								aria-label="Hidden character U+200D"
+								>U+200D</span
+							>
+							marker.
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section class="pg-section pg-emulation-notes" id="pg-emulation-notes">
+				<h2>16. How to look at the other palettes</h2>
+				<ol>
+					<li>
+						<strong>Dark palette:</strong> DevTools &rarr; <em>⋮</em> &rarr; <em>More tools</em> &rarr;
+						<em>Rendering</em> &rarr; <em>Emulate CSS prefers-color-scheme</em> &rarr; <em>dark</em>. Every
+						section above re-renders with the dark block of the stylesheet; sections 2, 6, 7 and 12 are the
+						interesting ones.
+					</li>
+					<li>
+						<strong>Light palette on a dark page</strong> is sections 2 and 4 with emulation left on
+						<em>light</em>: the reported bug in one screen.
+					</li>
+					<li>
+						<strong>Forced colours (Windows high contrast):</strong> same Rendering menu &rarr;
+						<em>Emulate forced-colors: active</em>. The stylesheet has no <code>forced-colors</code> block,
+						so the wash and the ring may drop out entirely.
+					</li>
+					<li>
+						<strong>Colour blindness:</strong> Rendering menu &rarr; <em>Emulate vision deficiencies</em>.
+						Red, amber and blue are the classic ambiguous set, so check deuteranopia and tritanopia.
+					</li>
+					<li>
+						<strong>Print and PDF:</strong> <em>Ctrl/Cmd + P</em>. Backgrounds are usually dropped, leaving
+						only the label and its colour.
+					</li>
+					<li>
+						<strong>Zoom:</strong> 50% and 200% browser zoom, and a 320px wide window, to check the marker
+						in a phone-width column.
+					</li>
+				</ol>
+			</section>
+		</main>
+	</body>
+</html>
