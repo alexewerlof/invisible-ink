@@ -34,13 +34,33 @@ export const messageType = {
 	focusPrevious: `${namespace}:focus-previous`,
 	/** page detector to service worker: refresh the toolbar badge. */
 	report: `${namespace}:report`,
+	/** the paste-in inspector to service worker: hand over the selection a menu click saved. */
+	takePendingText: `${namespace}:take-pending-text`,
 } as const
 
 /** Every message this extension sends, in either direction. */
 export type MessageType = (typeof messageType)[keyof typeof messageType]
 
-/** The messages a page detector answers: everything except the badge report. */
-export type CommandType = Exclude<MessageType, typeof messageType.report>
+/**
+ * The messages a page detector answers.
+ *
+ * Written out rather than derived with `Exclude`, because a new message that is
+ * neither a page command nor the badge report would otherwise slip into
+ * `CommandType` silently — and the detector's handler table is typed against it,
+ * so a missing handler would look like valid code.
+ */
+export const commandTypes = [
+	messageType.scan,
+	messageType.reveal,
+	messageType.hide,
+	messageType.remove,
+	messageType.focusFirst,
+	messageType.focusNext,
+	messageType.focusPrevious,
+] as const satisfies readonly MessageType[]
+
+/** One of the commands a page detector answers. */
+export type CommandType = (typeof commandTypes)[number]
 
 /** A command sent to a page detector. */
 export interface CommandRequest {
@@ -90,17 +110,27 @@ export interface ReportMessage {
 	}
 }
 
+/**
+ * The paste-in inspector asking the service worker for the text a menu click
+ * handed over.
+ *
+ * The text is deliberately not put in the page's URL: the worker holds the
+ * selection while the tab loads and gives it up once, so a selection never ends
+ * up in the address bar or in session history, and no `storage` permission is
+ * needed.
+ */
+export interface PendingTextRequest {
+	readonly type: typeof messageType.takePendingText
+}
+
+/** The answer: the held text, or `null` when nothing is waiting. */
+export interface PendingTextResponse {
+	readonly text: string | null
+}
+
 const knownRuleIds = new Set<string>(CHARACTER_RULES.map((rule) => rule.id))
 const knownSeverities = new Set<string>(Object.values(severity))
-const knownCommands = new Set<string>([
-	messageType.scan,
-	messageType.reveal,
-	messageType.hide,
-	messageType.remove,
-	messageType.focusFirst,
-	messageType.focusNext,
-	messageType.focusPrevious,
-])
+const knownCommands = new Set<string>(commandTypes)
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null
@@ -192,6 +222,20 @@ export function isCommandResponse(value: unknown): value is CommandResponse {
 	if (value.ok !== true) return false
 
 	return isCount(value.changed) && isScanResult(value.scan)
+}
+
+/** Narrow a message to the inspector's request for the held selection. */
+export function isPendingTextRequest(value: unknown): value is PendingTextRequest {
+	return isRecord(value) && value.type === messageType.takePendingText
+}
+
+/** Narrow the worker's answer, which also crosses the channel as `any`. */
+export function isPendingTextResponse(value: unknown): value is PendingTextResponse {
+	if (!isRecord(value)) return false
+
+	const { text } = value
+
+	return text === null || isString(text)
 }
 
 /** Narrow a message to the badge report the page detector publishes. */

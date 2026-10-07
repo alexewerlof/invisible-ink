@@ -2,8 +2,8 @@
  * Builds the extension into dist/ with Vite.
  *
  * Vite is driven through its JavaScript API rather than a vite.config.ts because
- * the three entry points need three different output formats and a single Vite
- * build can only emit one: the popup is an HTML page with an ES module, the
+ * the entry points need different output formats and a single Vite build can only
+ * emit one: the popup and the inspector are HTML pages with an ES module, the
  * service worker is one ES module, and the content script has to be a classic
  * script, because a content script cannot use `import` and there is no bootstrap
  * left to load a module on its behalf.
@@ -27,6 +27,8 @@ const entryPoints: readonly { readonly entry: string; readonly format: 'es' | 'i
 	// The popup is an HTML entry, so Vite bundles its module and stylesheet and
 	// rewrites the tags in the emitted copy.
 	{ entry: 'popup/popup.html', format: 'es' },
+	// The inspector is the second HTML entry, opened in its own tab.
+	{ entry: 'inspect/inspect.html', format: 'es' },
 	// The manifest declares this worker as a module.
 	{ entry: 'background/service-worker.ts', format: 'es' },
 	// A classic script cannot contain `import`, so this one is bundled as an IIFE.

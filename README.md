@@ -31,6 +31,7 @@ Open a chat with any provider, have a conversation, then click the toolbar butto
 | Toolbar badge    | The number of hidden characters in the main document, cleared when you navigate                           |
 | Right-click menu | **Hidden characters** → reveal, restore, or remove, applied to the frame you clicked                      |
 | Selected text    | **Hidden characters** → **Copy clean text** copies the selection with the hidden characters stripped      |
+| Pasted text      | The **inspect text** tab, opened from the popup or from a selection, marks up text you paste yourself     |
 
 The counter and the badge always describe the **main document** of the tab, so the two can
 never disagree. A message that names no frame reaches every frame at once, which is exactly
@@ -59,6 +60,26 @@ right now. Reloading the page also restores it — nothing is written anywhere.
 The **refresh** button in the popup header asks for that fresh scan on demand, for a page
 that changes after the popup opens: a chat response that streams in, a feed that loads more
 rows, a single-page app that swaps the document without navigating.
+
+### Inspecting text you paste
+
+The popup can only read text that is on the page, because that is where a content script can
+look. A `<textarea>` or `<input>` keeps its text in the field instead, so the text you are
+typing into — the composer of a chat, a search box, a decoder on another site — is exactly
+the text the popup cannot see. The **inspect text** tab closes that gap.
+
+The **inspect text** button in the popup header opens an extension page in its own tab with
+three columns: the text you paste on the left, the same text with every hidden character
+marked in the middle, and the same report panel the popup shows on the right. You can also
+reach it from the right-click menu: select text anywhere and choose **Hidden characters** →
+**Inspect the selection in a new tab**, and the page opens with that selection already in
+the textarea.
+
+Because the text is in front of you, this view reacts as you type — paste a reply, and the
+counter, the breakdown and the markers all update as you edit. **Remove** rewrites the
+textarea itself, and **Copy clean text** puts the stripped text on the clipboard without
+touching the textarea, so you can clean a draft and keep editing it. Nothing is stored: the
+text lives in the tab's memory and a reload clears it.
 
 ## How detection works
 
@@ -113,13 +134,13 @@ most watermarking is not something you can delete from the text.
   invisible to any rule table, because the characters themselves are unremarkable.
 - **Server-side watermarks** — provider logs, request signing, response hashes — are not in
   the text at all.
-- **It skips text in editable places.** A `<textarea>` or `<input>` keeps its text in the
-  element's `value` rather than in the document, so the text-node walker never sees it (the
+- **It skips text in editable places on a page.** A `<textarea>` or `<input>` keeps its text in
+  the element's `value` rather than in the document, so the text-node walker never sees it (the
   decoder text box on a site like `invisible-characters.com` is exactly this). A
   `contenteditable` region does hold text nodes, but rewriting them would break the editor
   state of the site, so it is skipped too. In short: the text you are typing into is not the
-  text that gets scanned — put it on the page itself to inspect it. **Copy clean text** is the
-  exception: it takes the selection the browser reports, so it works in a form field too.
+  text that gets scanned. **Copy clean text** reaches a selection in a form field, and the
+  **inspect text** tab scans text you paste directly.
 - **Text inside a cross-origin iframe** is not counted by the popup or the badge, because
   both describe the main document. The right-click menu still works there: it acts on the
   frame you clicked and injects the detector into it when needed. **Copy clean text** writes
@@ -146,7 +167,8 @@ extension/                  the sources: manifest plus TypeScript for each conte
   background/               service worker: toolbar badge, right-click menu and clipboard
   content/                  page detector plus the CSS for its markers
   popup/                    the panel behind the toolbar button
-  shared/                   rules, scanning helpers and the message contract
+  inspect/                  the paste-in inspector: an extension page opened in its own tab
+  shared/                   rules, scanning helpers, the message contract and the panel renderers
   icons/                    icon.svg (the Boxy SVG source) with the PNGs exported from it
 dist/                       build output: the unpacked extension Chrome loads
 test/                       unit tests for the scanning helpers, and a browser fixture
@@ -181,3 +203,9 @@ To check a change by hand: run `npm run build`, load `dist/` unpacked, open
 the extension), click the toolbar button, and try Show, Refresh, Hide and Remove. The page carries
 the private use pairs, tag characters, zero-width characters, variation selectors, look-alike
 spaces and ordinary prose for contrast, and it documents the count a scan should report.
+
+To check the paste-in inspector, open it from the popup header, copy a paragraph out of
+`test/fixtures/hidden-characters-page.html` and paste it into the textarea. A scan of the whole
+fixture's text reports 21 findings, with the same breakdown by kind that the popup reports — the
+fixture's table is the expected result. Try Prev/Next, Hide, Remove and Copy clean text, in both
+colour schemes and at a narrow window width, where the three columns stack.

@@ -70,6 +70,10 @@ HOW IT WORKS
 5. To clean up just one snippet, select it, right-click and choose Hidden characters → Copy
    clean text. The selection goes to your clipboard with the hidden characters stripped out,
    without opening the popup or changing the page.
+6. To inspect text you have not put on a page yet, open the inspect text tab from the popup
+   header, or select text and choose Hidden characters → Inspect the selection in a new tab. It
+   shows your text on the left, the same text with every hidden character marked in the middle,
+   and the report on the right, updating as you type.
 
 The toolbar badge shows the count for the current tab at a glance and clears when you
 navigate. A right-click menu offers the same reveal, restore and remove actions — plus Copy
@@ -98,9 +102,10 @@ HONEST LIMITS
 
 • It only sees characters. A watermark built into word choice has no character to remove.
 • Whitespace schemes made of ordinary spaces are invisible to any rule table.
-• Text in editable places is skipped: an input or textarea keeps its text in the field
+• Text in editable places on a page is skipped: an input or textarea keeps its text in the field
   rather than on the page, and rewriting a contenteditable box would break the site, so a
-  chat composer is left alone.
+  chat composer is left alone. The inspect text tab is the way to check text like that: paste it
+  there and it is scanned as you type, and Copy clean text reaches a selection in a form field too.
 • Text inside a cross-origin iframe is not counted by the popup or the badge, though the
   right-click menu still works there.
 • Copy clean text needs a page the extension is allowed to run on, so it does not work on
@@ -132,7 +137,7 @@ copy paste cleaner, AI watermark, text watermark, hidden text detector, unicode 
 ## Single purpose statement
 
 > Invisible Ink finds and removes hidden Unicode characters in the text of the page the user
-> is viewing.
+> is viewing, and in text the user pastes into its own inspect page.
 
 ## Permission justifications
 

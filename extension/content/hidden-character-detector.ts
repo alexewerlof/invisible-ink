@@ -16,29 +16,27 @@ import {
 	type ReportMessage,
 	type ScanResult,
 } from '../shared/message-contract'
-import { formatCodePoint, isSpaceSubstitute, ruleForCodePoint } from '../shared/hidden-character-rules'
+import { prefersReducedMotion } from '../shared/dom'
+import {
+	activeMarkClass,
+	collectMarkElements,
+	createMarkedFragment,
+	markReplacement,
+	nextMarkIndex,
+} from '../shared/hidden-character-mark'
 import {
 	countHiddenCharacters,
 	joinCleanSegments,
 	mergeScanReports,
 	scanText,
-	segmentKind,
 	splitTextByHiddenCharacters,
 	type HiddenCharacterReport,
-	type HiddenCharacterSegment,
 } from '../shared/hidden-character-scan'
 
 declare global {
 	/** Set by the first run of this script in a document. See the bottom of the file. */
 	var __invisibleInkLoaded: boolean | undefined
 }
-
-/** The block name of the marker we insert; the matching CSS lives in hidden-character-marks.css. */
-const markBlock = 'ii-hidden-character'
-const markSelector = `.${markBlock}`
-
-/** The class the highlighted marker carries; hidden-character-marks.css draws the ring. */
-const activeMarkClass = `${markBlock}--active`
 
 /** Elements whose text is never prose, so walking into them only wastes time. */
 const skippedTagNames: ReadonlySet<string> = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'TITLE'])
@@ -93,11 +91,6 @@ function documentRoot(): HTMLElement {
 	return document.querySelector('body') ?? document.documentElement
 }
 
-/** The markers left behind by a previous reveal. */
-function collectMarkElements(): HTMLElement[] {
-	return [...document.querySelectorAll<HTMLElement>(markSelector)]
-}
-
 /**
  * Measure the page as it is right now.
  *
@@ -140,20 +133,11 @@ function revealHiddenCharacters(): ChangeResult {
 
 	for (const node of collectTextNodes()) {
 		const segments = splitTextByHiddenCharacters(node.nodeValue ?? '')
-		if (countHiddenCharacters(segments) === 0) continue
+		const hidden = countHiddenCharacters(segments)
+		if (hidden === 0) continue
 
-		const replacement = document.createDocumentFragment()
-		for (const segment of segments) {
-			if (segment.kind === segmentKind.text) {
-				replacement.append(segment.value)
-				continue
-			}
-
-			replacement.append(createMarkElement(segment))
-			revealed += 1
-		}
-
-		node.replaceWith(replacement)
+		node.replaceWith(createMarkedFragment(segments))
+		revealed += hidden
 	}
 
 	return { changed: revealed }
@@ -194,27 +178,6 @@ function removeHiddenCharacters(): ChangeResult {
 
 	focusedIndex = -1
 	return { changed: removed }
-}
-
-/** What a removed marker leaves behind: a space if it stood in for one. */
-function markReplacement(mark: HTMLElement): string {
-	const codePoint = mark.dataset.iiCharacter?.codePointAt(0)
-	const rule = codePoint === undefined ? null : ruleForCodePoint(codePoint)
-	return rule !== null && isSpaceSubstitute(rule) ? ' ' : ''
-}
-
-function createMarkElement(segment: HiddenCharacterSegment): HTMLSpanElement {
-	const codePointLabel = formatCodePoint(segment.codePoint)
-
-	const mark = document.createElement('span')
-	mark.className = `${markBlock} ${markBlock}--${segment.rule.severity}`
-	mark.dataset.iiCharacter = segment.value
-	mark.textContent = codePointLabel
-	mark.title = segment.rule.label
-	mark.setAttribute('role', 'img')
-	mark.setAttribute('aria-label', `Hidden character ${codePointLabel}`)
-
-	return mark
 }
 
 /** Walks the reader through the findings */
@@ -258,28 +221,19 @@ function focusRelativeCharacter(step: number): void {
 		return
 	}
 
-	focusedIndex = nextFocusIndex(focusedIndex, step, marks.length)
+	focusedIndex = nextMarkIndex(focusedIndex, step, marks.length)
 
 	for (const [index, mark] of marks.entries()) {
 		mark.classList.toggle(activeMarkClass, index === focusedIndex)
 	}
 
 	// `noUncheckedIndexedAccess` types every indexed read as optional, even though
-	// `nextFocusIndex` just returned a position inside the array.
+	// `nextMarkIndex` just returned a position inside the array.
 	marks[focusedIndex]?.scrollIntoView({
 		block: 'center',
 		inline: 'center',
 		behavior: prefersReducedMotion() ? 'auto' : 'smooth',
 	})
-}
-
-/**
- * Step through the highlights. -1 means nothing was highlighted yet, so a fresh
- * tour starts at the first finding going forward and the last one going back.
- */
-function nextFocusIndex(current: number, step: number, length: number): number {
-	if (current < 0) return step < 0 ? length - 1 : 0
-	return (current + step + length) % length
 }
 
 /**
@@ -295,11 +249,6 @@ function readFocus(markCount: number): FocusState | null {
 	}
 
 	return { index: focusedIndex, total: markCount }
-}
-
-/** Jump without animation for readers who asked for less motion. */
-function prefersReducedMotion(): boolean {
-	return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
 /** Answers the popup and the service worker */

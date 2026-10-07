@@ -1,0 +1,168 @@
+/*
+ * The inspector's own chrome, plus the two stylesheets it borrows.
+ *
+ * The third column is the popup's report panel, so this file imports the popup
+ * stylesheet rather than restating it, and imports the marker stylesheet so the
+ * middle column's pills look exactly like the ones the content script inserts on
+ * a page. Keeping both as imports is what stops a third hand-written copy of the
+ * severity palette from appearing: the palette still lives in `shared/theme.ts`
+ * and is spelled out in those two files only.
+ */
+
+@import '../popup/popup.css';
+@import '../content/hidden-character-marks.css';
+
+/*
+ * The popup's `:root` block is imported above, so `--surface`, `--border` and the
+ * rest of the palette are already defined here, in both colour schemes.
+ */
+
+html,
+body {
+	height: 100%;
+}
+
+body {
+	display: flex;
+	flex-direction: column;
+	margin: 0;
+	background-color: var(--surface-raised);
+	color: var(--text);
+	font-family:
+		system-ui,
+		-apple-system,
+		'Segoe UI',
+		sans-serif;
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.ii-inspect__bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 4px 14px;
+	padding: 12px 18px;
+	border-bottom: 1px solid var(--border);
+	background-color: var(--surface);
+}
+
+.ii-inspect__title {
+	margin: 0;
+	font-size: 15px;
+	font-weight: 600;
+	letter-spacing: 0.01em;
+}
+
+.ii-inspect__intro {
+	margin: 0;
+	color: var(--text-muted);
+	font-size: 12px;
+}
+
+/*
+ * The three columns: the text, the marked text, and the report panel.
+ *
+ * `minmax(0, 1fr)` rather than `1fr` is what lets a long unbroken line scroll
+ * inside its pane instead of pushing the grid wider than the window, and the
+ * 340px track is exactly the width the popup panel asks for.
+ */
+.ii-inspect__columns {
+	display: grid;
+	flex: 1;
+	min-height: 0;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 340px;
+	gap: 1px;
+	background-color: var(--border);
+}
+
+.ii-inspect__pane {
+	display: flex;
+	min-width: 0;
+	min-height: 0;
+	flex-direction: column;
+	padding: 12px 14px 14px;
+	background-color: var(--surface);
+}
+
+.ii-inspect__pane-title {
+	margin: 0 0 8px;
+	color: var(--text-muted);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+/*
+ * Both panes share one monospace face and one line height, so a marked line sits
+ * at the same height as its source; the textarea does not inherit `font` from
+ * `body` on its own, which is why it is stated here rather than left to chance.
+ */
+.ii-inspect__input,
+.ii-inspect__marked {
+	flex: 1;
+	min-height: 0;
+	margin: 0;
+	padding: 10px 12px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background-color: var(--surface-raised);
+	color: var(--text);
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 13px;
+	line-height: 1.6;
+}
+
+.ii-inspect__input {
+	resize: none;
+}
+
+.ii-inspect__input:focus-visible {
+	border-color: var(--accent);
+	outline: 2px solid var(--accent);
+	outline-offset: -1px;
+}
+
+.ii-inspect__marked {
+	overflow: auto;
+	overflow-wrap: anywhere;
+	white-space: pre-wrap;
+}
+
+.ii-inspect__marked--empty {
+	color: var(--text-muted);
+	font-style: italic;
+}
+
+/*
+ * The popup's panel sets its own width; here the grid track already decides it,
+ * so the panel just fills the column and scrolls on its own. This rule comes
+ * after the imported one, so it wins without a more specific selector.
+ */
+.ii-inspect__panel {
+	width: auto;
+	min-height: 0;
+	overflow-y: auto;
+}
+
+.ii-inspect__copy {
+	width: 100%;
+	margin-top: 8px;
+}
+
+/*
+ * A narrow window cannot hold three columns, so they stack instead. Each pane
+ * keeps a usable minimum height and the whole stack scrolls as one.
+ */
+@media (max-width: 900px) {
+	.ii-inspect__columns {
+		grid-template-columns: minmax(0, 1fr);
+		grid-auto-rows: minmax(240px, 1fr);
+		overflow-y: auto;
+	}
+
+	.ii-inspect__panel {
+		overflow-y: visible;
+	}
+}

@@ -5,7 +5,14 @@
  * and the clipboard write is injected into the clicked frame.
  */
 
-import { isReportMessage, messageType, type CommandType } from '../shared/message-contract'
+import { inspectPageUrl } from '../shared/inspect-page'
+import {
+	isPendingTextRequest,
+	isReportMessage,
+	messageType,
+	type CommandType,
+	type PendingTextResponse,
+} from '../shared/message-contract'
 import { stripHiddenCharacters } from '../shared/hidden-character-scan'
 import { mainFrameId, requestInTab, runInFrame, type RequestTarget } from '../shared/tab-messaging'
 import { badgeBackgroundColor } from '../shared/theme'
@@ -16,6 +23,7 @@ const menuIds = {
 	hide: 'ii-hide',
 	remove: 'ii-remove',
 	copyClean: 'ii-copy-clean',
+	openInspector: 'ii-open-inspector',
 } as const
 
 /** One of the menu entries this extension creates. */
@@ -27,6 +35,7 @@ const menuTitles: Record<MenuId, string> = {
 	[menuIds.hide]: 'Restore revealed characters',
 	[menuIds.remove]: 'Remove hidden characters',
 	[menuIds.copyClean]: 'Copy clean text',
+	[menuIds.openInspector]: 'Inspect the selection in a new tab',
 }
 
 /**
@@ -56,6 +65,9 @@ const leafMenus: readonly {
 	{ id: menuIds.remove, parentId: menuIds.root, contexts: pageContexts },
 	// Copying works on whatever is selected, so it is offered only then.
 	{ id: menuIds.copyClean, parentId: menuIds.root, contexts: selectionContexts },
+	// The paste-in inspector starts from a selection too, so it is offered only when
+	// there is one to hand over.
+	{ id: menuIds.openInspector, parentId: menuIds.root, contexts: selectionContexts },
 ]
 
 const badgeTextLimit = 999
@@ -97,6 +109,11 @@ async function handleContextMenuClick(
 ): Promise<void> {
 	if (info.menuItemId === menuIds.copyClean) {
 		await copyCleanSelection(info, tab)
+		return
+	}
+
+	if (info.menuItemId === menuIds.openInspector) {
+		await openInspector(info)
 		return
 	}
 
@@ -148,7 +165,69 @@ function writeClipboardText(text: string): Promise<void> {
 	return navigator.clipboard.writeText(text)
 }
 
-chrome.runtime.onMessage.addListener((message: unknown, sender): boolean | undefined => {
+/**
+ * How long a selection waits to be claimed by the page it opened.
+ *
+ * The worker sets the slot just before opening the tab and the page claims it as
+ * soon as its script runs, so this only has to outlast a page load. If nothing
+ * claims it — the reader closed the tab, or a reload raced the first request —
+ * the slot is dropped rather than leaking into the next page the reader opens.
+ */
+const pendingTextLifetimeMs = 10_000
+
+/**
+ * The one piece of state the worker keeps in memory.
+ *
+ * Everything else here is rebuilt on each wake-up, but this slot has to survive
+ * exactly one thing: the moment between the menu click that opens the inspector
+ * and the page's first message. It is not persisted, so a worker restart simply
+ * means the reader pastes the text themselves.
+ */
+let pendingText: string | null = null
+let pendingTextTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * Open the paste-in inspector with the selection already in its textarea.
+ *
+ * The text travels through the message channel rather than the URL, so it never
+ * appears in the address bar or in session history.
+ */
+async function openInspector(info: chrome.contextMenus.OnClickData): Promise<void> {
+	const selected = info.selectionText
+	if (selected !== undefined && selected !== '') rememberPendingText(selected)
+
+	await chrome.tabs.create({ url: inspectPageUrl() })
+}
+
+function rememberPendingText(text: string): void {
+	pendingText = text
+
+	if (pendingTextTimer !== null) clearTimeout(pendingTextTimer)
+	pendingTextTimer = setTimeout(() => {
+		pendingText = null
+		pendingTextTimer = null
+	}, pendingTextLifetimeMs)
+}
+
+/** Hand the held selection over once, then forget it. */
+function takePendingText(): string | null {
+	if (pendingTextTimer !== null) {
+		clearTimeout(pendingTextTimer)
+		pendingTextTimer = null
+	}
+
+	const text = pendingText
+	pendingText = null
+	return text
+}
+
+chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse): boolean | undefined => {
+	if (isPendingTextRequest(message)) {
+		const response: PendingTextResponse = { text: takePendingText() }
+		sendResponse(response)
+		return false
+	}
+
 	if (!isReportMessage(message)) return undefined
 
 	// The badge describes the main frame, which is what the popup counts. A

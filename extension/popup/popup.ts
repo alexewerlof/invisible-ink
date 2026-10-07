@@ -6,31 +6,19 @@
  * scan, so the panel always shows what is on the page right now.
  */
 
-import { CHARACTER_RULES, severityLabel } from '../shared/hidden-character-rules'
+import { requireButton, requireElement } from '../shared/dom'
+import { inspectPageUrl } from '../shared/inspect-page'
 import { messageType, type CommandResponse, type CommandType, type FocusState } from '../shared/message-contract'
+import {
+	countLabel,
+	describeFocus,
+	focusLabel,
+	plural,
+	renderCharacters,
+	renderKinds,
+	renderLegend,
+} from '../shared/report-view'
 import { getActiveTab, isRestrictedPageUrl, requestInTab, UninspectablePageError } from '../shared/tab-messaging'
-import type { CodePointCount, RuleCount } from '../shared/hidden-character-scan'
-
-/**
- * Look up an element the popup owns.
- *
- * The markup and this script ship together, so a missing element is a mistake in
- * the pair rather than something a reader can recover from.
- */
-function requireElement(id: string): HTMLElement {
-	const element = document.getElementById(id)
-	if (element === null) throw new Error(`The popup markup has no #${id} element.`)
-	return element
-}
-
-/** Look up a button, checking that it really is one so `disabled` is safe to set. */
-function requireButton(id: string): HTMLButtonElement {
-	const element = requireElement(id)
-	if (!(element instanceof HTMLButtonElement)) {
-		throw new Error(`The popup markup has #${id} as a ${element.tagName}, not a button.`)
-	}
-	return element
-}
 
 const countElement = requireElement('count')
 const countLabelElement = requireElement('count-label')
@@ -42,15 +30,13 @@ const removeButton = requireButton('remove')
 const previousButton = requireButton('previous')
 const nextButton = requireButton('next')
 const refreshButton = requireButton('refresh')
+const openInspectorButton = requireButton('open-inspector')
 const focusElement = requireElement('focus-position')
 const statusElement = requireElement('status')
 const legendElement = requireElement('legend')
 
 const unsupportedPageMessage =
 	'This page cannot be inspected. Browser pages, the extension gallery and file viewers block extensions.'
-
-/** Code points are listed most frequent first, so a handful is enough context. */
-const visibleCharacterCount = 8
 
 /**
  * What a manual refresh reports. It is not a change the popup made, so it says
@@ -87,7 +73,13 @@ nextButton.addEventListener('click', () => {
 	void runCommand(messageType.focusNext)
 })
 
-renderLegend()
+// The same panel works on text the reader pastes, which the detector cannot reach
+// because a textarea keeps its text in the field rather than on the page.
+openInspectorButton.addEventListener('click', () => {
+	void openInspector()
+})
+
+renderLegend(legendElement)
 
 // A module script runs after the document is parsed, and the popup gets a fresh
 // module instance every time it opens, so this is where the popup re-reads the
@@ -111,6 +103,12 @@ async function openPopup(): Promise<void> {
 	}
 
 	await runCommand(messageType.scan)
+}
+
+/** Open the paste-in inspector in its own tab, and get out of its way. */
+async function openInspector(): Promise<void> {
+	await chrome.tabs.create({ url: inspectPageUrl() })
+	window.close()
 }
 
 async function runCommand(type: CommandType, announcement = ''): Promise<void> {
@@ -149,13 +147,13 @@ function renderScan(response: Extract<CommandResponse, { ok: true }>, type: Comm
 	pageIsInspectable = true
 
 	countElement.textContent = String(report.total)
-	countLabelElement.textContent = report.total === 1 ? 'character found' : 'characters found'
+	countLabelElement.textContent = countLabel(report.total)
 	subtitleElement.textContent = describeFindings(report.total, sources)
 	statusElement.textContent = announcement === '' ? describeChange(type, response.changed, focus) : announcement
 
-	renderFocus(focus)
-	renderKinds(report.byRule)
-	renderCharacters(report.byCodePoint)
+	focusElement.textContent = focusLabel(focus)
+	renderKinds(kindsElement, report.byRule)
+	renderCharacters(charactersElement, report.byCodePoint)
 }
 
 function describeFindings(found: number, sources: number): string {
@@ -174,76 +172,6 @@ function describeChange(type: CommandType, changed: number, focus: FocusState | 
 	return describeFocus(focus)
 }
 
-/** The Show/Next/Prev row reports where the reader now is, not what changed. */
-function describeFocus(focus: FocusState | null): string {
-	if (focus === null) return ''
-	return `Showing ${String(focus.index + 1)} of ${String(focus.total)}.`
-}
-
-function renderFocus(focus: FocusState | null): void {
-	focusElement.textContent = focus === null ? '' : `${String(focus.index + 1)} / ${String(focus.total)}`
-}
-
-function renderKinds(byRule: readonly RuleCount[]): void {
-	kindsElement.replaceChildren()
-
-	for (const entry of byRule) {
-		const item = document.createElement('li')
-		item.className = `ii-panel__kind ii-panel__kind--${entry.severity}`
-		item.title = entry.note
-
-		const name = document.createElement('span')
-		name.className = 'ii-panel__kind-name'
-		name.textContent = `${entry.label} (${severityLabel[entry.severity]})`
-
-		const count = document.createElement('span')
-		count.className = 'ii-panel__kind-count'
-		count.textContent = String(entry.count)
-
-		item.append(name, count)
-		kindsElement.append(item)
-	}
-}
-
-function renderCharacters(byCodePoint: readonly CodePointCount[]): void {
-	charactersElement.replaceChildren()
-
-	for (const entry of byCodePoint.slice(0, visibleCharacterCount)) {
-		charactersElement.append(createCharacterChip(`${entry.formatted} x${String(entry.count)}`))
-	}
-
-	if (byCodePoint.length > visibleCharacterCount) {
-		const hidden = byCodePoint.length - visibleCharacterCount
-		charactersElement.append(createCharacterChip(`+${String(hidden)} more`))
-	}
-}
-
-function createCharacterChip(label: string): HTMLLIElement {
-	const item = document.createElement('li')
-	item.className = 'ii-panel__character'
-	item.textContent = label
-	return item
-}
-
-/** The legend is the rules table, so it explains exactly what the scanner looks for. */
-function renderLegend(): void {
-	for (const rule of CHARACTER_RULES) {
-		const item = document.createElement('li')
-		item.className = 'ii-panel__legend-item'
-
-		const name = document.createElement('p')
-		name.className = 'ii-panel__legend-name'
-		name.textContent = `${rule.label} (${severityLabel[rule.severity]})`
-
-		const note = document.createElement('p')
-		note.className = 'ii-panel__legend-note'
-		note.textContent = rule.note
-
-		item.append(name, note)
-		legendElement.append(item)
-	}
-}
-
 /**
  * Show why nothing can be inspected, and leave the panel in a state where the
  * buttons cannot promise anything.
@@ -259,7 +187,7 @@ function showFailure(message: string): void {
 	statusElement.textContent = message
 	kindsElement.replaceChildren()
 	charactersElement.replaceChildren()
-	renderFocus(null)
+	focusElement.textContent = ''
 
 	updateButtons(false)
 }
@@ -277,9 +205,4 @@ function updateButtons(busy: boolean): void {
 	removeButton.disabled = busy || !usable
 	previousButton.disabled = busy || !usable
 	nextButton.disabled = busy || !usable
-}
-
-/** `1 element` but `2 elements`, so counts read as prose. */
-function plural(count: number, noun: string): string {
-	return count === 1 ? `1 ${noun}` : `${String(count)} ${noun}s`
 }

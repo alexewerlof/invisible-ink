@@ -60,7 +60,13 @@
 	min-width: 0;
 }
 
-.ii-panel__refresh {
+.ii-panel__header-actions {
+	display: flex;
+	flex: 0 0 auto;
+	gap: 6px;
+}
+
+.ii-panel__icon-button {
 	display: flex;
 	flex: 0 0 auto;
 	align-items: center;
@@ -75,23 +81,23 @@
 	cursor: pointer;
 }
 
-.ii-panel__refresh:hover:not(:disabled) {
+.ii-panel__icon-button:hover:not(:disabled) {
 	border-color: var(--text-muted);
 	color: var(--text);
 }
 
-.ii-panel__refresh:disabled {
+.ii-panel__icon-button:disabled {
 	opacity: 0.45;
 	cursor: default;
 }
 
-.ii-panel__refresh-icon {
+.ii-panel__icon-button-icon {
 	display: block;
 }
 
 /* The scan a click starts can take a moment on a large page, so the icon turns
    while the popup waits for the page to answer. */
-.ii-panel__refresh--busy .ii-panel__refresh-icon {
+.ii-panel__refresh--busy .ii-panel__icon-button-icon {
 	animation: ii-panel__spin 900ms linear infinite;
 }
 
@@ -102,7 +108,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.ii-panel__refresh--busy .ii-panel__refresh-icon {
+	.ii-panel__refresh--busy .ii-panel__icon-button-icon {
 		animation: none;
 	}
 }

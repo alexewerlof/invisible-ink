@@ -30,6 +30,15 @@ const bannedScriptPatterns: readonly { readonly pattern: RegExp; readonly descri
 /** A content script is a classic script, so module syntax would be a parse error. */
 const moduleSyntaxPattern = /^\s*(?:import\s|export\s)/m
 
+/**
+ * Files the build must write even though the manifest never names them.
+ *
+ * `referencedFiles` above only proves that what the manifest points at exists, so
+ * a page opened with `chrome.tabs.create` — the inspector — could vanish from the
+ * build without a single check noticing.
+ */
+const unmanifestedFiles: readonly string[] = ['inspect/inspect.html', 'inspect/inspect.js']
+
 /** Every problem found, so one run reports all of them instead of only the first. */
 const problems: string[] = []
 
@@ -140,6 +149,10 @@ async function main(): Promise<void> {
 			await exists(join(outputDirectory, path)),
 			`manifest.json points at ${path}, which the build did not write`,
 		)
+	}
+
+	for (const path of unmanifestedFiles) {
+		check(await exists(join(outputDirectory, path)), `the build did not write ${path}`)
 	}
 
 	for (const icon of declaredIcons(manifest)) {
