@@ -7,7 +7,9 @@ and how to use it.
 
 ```sh
 npm test           # vitest, covers everything in extension/shared
+npm run test:watch # vitest in watch mode
 npm run lint       # eslint, no rule overrides
+npm run lint:fix   # eslint --fix
 npm run typecheck  # tsc --noEmit
 npm run build      # vite, writes the loadable extension to dist/
 npm run deploy-check  # format, lint, types, tests, build, build checks, then release/*.zip
@@ -136,6 +138,15 @@ compliance pass before calling the change done.
 - **Never write raw invisible characters into source files.** Use escapes (`'\u200B'`,
   `'\u{E0001}'`). Zero-width characters are silently dropped by some tooling, which turned a
   test into a false pass once already. The tests cover exactly that mistake.
+- **`dist/` is emptied, never deleted.** Chrome running as a Flatpak app receives the folder
+  through the document portal, which records the directory itself rather than a path it can
+  look up again, so a build that removes or renames `dist/` leaves the loaded extension
+  pointing at a directory that no longer exists: Reload reports "File path cannot be resolved.
+  Could not load manifest." and the folder has to be picked again. Vite's `emptyOutDir` deletes
+  the entries inside the directory and keeps it, so `tools/build.ts` asks for that on the first
+  entry point only (the four builds share the directory), and `npm run build` fails if the
+  directory's identity changed. Do not build into a staging directory and rename it over
+  `dist/`; that reintroduces the same failure.
 - **`textContent`, never `innerHTML`,** for anything derived from a page.
 
 ## Testing

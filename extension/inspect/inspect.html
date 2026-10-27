@@ -1,73 +1,76 @@
 <!doctype html>
 <html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Invisible Ink — inspect text</title>
+		<link rel="stylesheet" href="inspect.css" />
+	</head>
 
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Invisible Ink — inspect text</title>
-    <link rel="stylesheet" href="inspect.css" />
-</head>
+	<body>
+		<header class="ii-inspect__bar">
+			<h1 class="ii-inspect__title">Invisible Ink</h1>
+			<p class="ii-inspect__intro">
+				Paste or type text on the left. The middle pane marks every hidden character; the report on the right is
+				the same one the popup shows.
+			</p>
+		</header>
 
-<body>
-    <header class="ii-inspect__bar">
-        <h1 class="ii-inspect__title">Invisible Ink</h1>
-        <p class="ii-inspect__intro">
-            Paste or type text on the left. The middle pane marks every hidden character; the report on the right is
-            the same one the popup shows.
-        </p>
-    </header>
+		<main class="ii-inspect__columns">
+			<section class="ii-inspect__pane">
+				<h2 class="ii-inspect__pane-title" id="input-label">Text you paste</h2>
+				<textarea
+					class="ii-inspect__input"
+					id="input"
+					spellcheck="false"
+					aria-labelledby="input-label"
+					placeholder="Paste text here…"
+				></textarea>
+			</section>
 
-    <main class="ii-inspect__columns">
-        <section class="ii-inspect__pane">
-            <h2 class="ii-inspect__pane-title" id="input-label">Text you paste</h2>
-            <textarea class="ii-inspect__input" id="input" spellcheck="false" aria-labelledby="input-label"
-                placeholder="Paste text here…"></textarea>
-        </section>
+			<section class="ii-inspect__pane">
+				<h2 class="ii-inspect__pane-title">Marked text</h2>
+				<div class="ii-inspect__marked" id="marked"></div>
+			</section>
 
-        <section class="ii-inspect__pane">
-            <h2 class="ii-inspect__pane-title">Marked text</h2>
-            <div class="ii-inspect__marked" id="marked"></div>
-        </section>
+			<article class="ii-panel ii-inspect__panel">
+				<header class="ii-panel__header">
+					<div class="ii-panel__heading">
+						<h2 class="ii-panel__title">Report</h2>
+						<p class="ii-panel__subtitle" id="subtitle">Nothing to inspect yet.</p>
+					</div>
+				</header>
 
-        <article class="ii-panel ii-inspect__panel">
-            <header class="ii-panel__header">
-                <div class="ii-panel__heading">
-                    <h2 class="ii-panel__title">Report</h2>
-                    <p class="ii-panel__subtitle" id="subtitle">Nothing to inspect yet.</p>
-                </div>
-            </header>
+				<section class="ii-panel__summary" aria-live="polite">
+					<p class="ii-panel__count" id="count">0</p>
+					<p class="ii-panel__count-label" id="count-label">characters found</p>
+				</section>
 
-            <section class="ii-panel__summary" aria-live="polite">
-                <p class="ii-panel__count" id="count">0</p>
-                <p class="ii-panel__count-label" id="count-label">characters found</p>
-            </section>
+				<ul class="ii-panel__kinds" id="kinds"></ul>
+				<ul class="ii-panel__characters" id="characters"></ul>
 
-            <ul class="ii-panel__kinds" id="kinds"></ul>
-            <ul class="ii-panel__characters" id="characters"></ul>
+				<div class="ii-panel__actions">
+					<button class="ii-panel__button ii-panel__button--primary" id="reveal" type="button">Show</button>
+					<button class="ii-panel__button" id="remove" type="button">Remove</button>
+				</div>
 
-            <div class="ii-panel__actions">
-                <button class="ii-panel__button ii-panel__button--primary" id="reveal" type="button">Show</button>
-                <button class="ii-panel__button" id="remove" type="button">Remove</button>
-            </div>
+				<button class="ii-panel__button ii-inspect__copy" id="copy" type="button">Copy clean text</button>
 
-            <button class="ii-panel__button ii-inspect__copy" id="copy" type="button">Copy clean text</button>
+				<div class="ii-panel__nav">
+					<button class="ii-panel__nav-button" id="previous" type="button">Prev</button>
+					<p class="ii-panel__focus" id="focus-position" aria-live="polite"></p>
+					<button class="ii-panel__nav-button" id="next" type="button">Next</button>
+				</div>
 
-            <div class="ii-panel__nav">
-                <button class="ii-panel__nav-button" id="previous" type="button">Prev</button>
-                <p class="ii-panel__focus" id="focus-position" aria-live="polite"></p>
-                <button class="ii-panel__nav-button" id="next" type="button">Next</button>
-            </div>
+				<p class="ii-panel__status" id="status" role="status"></p>
 
-            <p class="ii-panel__status" id="status" role="status"></p>
+				<details class="ii-panel__legend">
+					<summary class="ii-panel__legend-title">What counts as hidden?</summary>
+					<ul class="ii-panel__legend-list" id="legend"></ul>
+				</details>
+			</article>
+		</main>
 
-            <details class="ii-panel__legend">
-                <summary class="ii-panel__legend-title">What counts as hidden?</summary>
-                <ul class="ii-panel__legend-list" id="legend"></ul>
-            </details>
-        </article>
-    </main>
-
-    <script type="module" src="inspect.ts"></script>
-</body>
-
+		<script type="module" src="inspect.ts"></script>
+	</body>
 </html>

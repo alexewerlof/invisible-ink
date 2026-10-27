@@ -21,6 +21,10 @@ bidirectional controls and look-alike spaces.
 3. Turn on **Developer mode**.
 4. Choose **Load unpacked** and select the `dist/` directory of this repository.
 
+Keep that folder: `npm run build` empties `dist/` in place instead of recreating it, so a
+loaded extension keeps reloading from the same directory — including when Chrome runs as a
+Flatpak app, which remembers the folder itself rather than its path.
+
 ## Using it
 
 Open a chat with any provider, have a conversation, then click the toolbar button.
@@ -188,7 +192,9 @@ shipped JavaScript is plain, readable output rather than minified.
 
 ```sh
 npm test           # vitest: scanning rules and text handling
+npm run test:watch # vitest in watch mode
 npm run lint       # eslint, type-aware, no rule overrides
+npm run lint:fix   # eslint --fix
 npm run typecheck  # tsc --noEmit
 npm run build      # bundle extension/ into dist/
 npm run watch      # rebuild on change (reload the extension afterwards)
@@ -197,6 +203,12 @@ npm run check-build   # verify dist/: manifest paths, icon sizes, no eval, class
 npm run package       # build, then write release/invisible-ink-<version>.zip
 npm run deploy-check  # every check above, in order, ending with the zip
 ```
+
+`npm run build` empties `dist/` in place rather than recreating it. That matters when Chrome
+runs as a Flatpak app: it is given the folder through the document portal, which remembers the
+directory itself rather than its path, so a build that deleted `dist/` would leave the loaded
+extension pointing at a missing folder and every **Reload** would fail with _File path cannot
+be resolved_. Keep the directory; delete only what is inside it.
 
 To check a change by hand: run `npm run build`, load `dist/` unpacked, open
 `test/fixtures/hidden-characters-page.html` over `file://` (enable _Allow access to file URLs_ for

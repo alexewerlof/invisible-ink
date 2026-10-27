@@ -11,7 +11,9 @@
 	},
 	"scripts": {
 		"test": "vitest run",
+		"test:watch": "vitest",
 		"lint": "eslint .",
+		"lint:fix": "eslint . --fix",
 		"typecheck": "tsc --noEmit",
 		"build": "node tools/build.ts",
 		"watch": "node tools/build.ts --watch",

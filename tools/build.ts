@@ -11,12 +11,22 @@
  * Bundle names are deliberately unhashed and the manifest is copied rather than
  * rewritten, so the manifest that ships is exactly the file reviewed in
  * extension/.
+ *
+ * `dist/` is emptied in place and never deleted. Chrome running as a Flatpak app
+ * is handed the directory through the document portal, which records the
+ * directory itself rather than a path it can look up again: a build that
+ * replaces `dist/` leaves the loaded extension pointing at a directory that no
+ * longer exists, and Reload fails with "File path cannot be resolved. Could not
+ * load manifest." Vite's `emptyOutDir` removes the entries inside the directory
+ * and keeps the directory, which is what the first entry point asks for.
  */
 
-import { cp, rm } from 'node:fs/promises'
+import { cp, stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build, type BuildOptions, type InlineConfig } from 'vite'
+
+import { exists } from './files.ts'
 
 const rootDirectory = join(dirname(fileURLToPath(import.meta.url)), '..')
 const extensionDirectory = join(rootDirectory, 'extension')
@@ -42,8 +52,6 @@ const watching = process.argv.includes('--watch')
 
 const buildOptions: BuildOptions = {
 	outDir: outputDirectory,
-	// The builds share one output directory, so main() does the clean.
-	emptyOutDir: false,
 	target: buildTarget,
 	sourcemap: false,
 	// The shipped code stays readable: the extension is small enough that a
@@ -57,8 +65,12 @@ if (watching) buildOptions.watch = {}
 /**
  * Turn one entry point into a single file at the same path inside dist/, which is
  * what lets the manifest be copied instead of rewritten.
+ *
+ * `emptyOutDir` is per entry because the four builds share one output directory:
+ * Vite empties the directory as it enters a build, so only the first entry asks
+ * for it and the other three would otherwise erase what it just wrote.
  */
-function entryConfig(entry: string, format: 'es' | 'iife'): InlineConfig {
+function entryConfig(entry: string, format: 'es' | 'iife', emptyOutDir: boolean): InlineConfig {
 	return {
 		configFile: false,
 		root: extensionDirectory,
@@ -70,6 +82,7 @@ function entryConfig(entry: string, format: 'es' | 'iife'): InlineConfig {
 		base: '/',
 		build: {
 			...buildOptions,
+			emptyOutDir,
 			rollupOptions: {
 				input: { [entry.replace(/\.[^.]+$/, '')]: join(extensionDirectory, entry) },
 				output: {
@@ -98,14 +111,49 @@ async function copyStaticFiles(): Promise<void> {
 	await cp(join(extensionDirectory, 'icons'), join(outputDirectory, 'icons'), { recursive: true })
 }
 
-async function main(): Promise<void> {
-	await rm(outputDirectory, { recursive: true, force: true })
+/**
+ * A directory's identity, as the filesystem sees it. A path is only a name:
+ * deleting a directory and creating another one at the same path produces a
+ * different identity, and that is what the Flatpak document portal will not
+ * follow.
+ */
+async function directoryIdentity(path: string): Promise<string | null> {
+	if (!(await exists(path))) return null
 
-	for (const { entry, format } of entryPoints) {
-		await build(entryConfig(entry, format))
+	// `dev` and `ino` are numbers; the identity is only ever compared as text.
+	const stats = await stat(path)
+	return [stats.dev, stats.ino].join(':')
+}
+
+/**
+ * Fail loudly if the build replaced the output directory instead of emptying it.
+ *
+ * Emptying is what keeps a loaded extension reloadable: Chrome is given `dist/`
+ * once, keeps a handle on that directory, and never re-resolves the path. A build
+ * that deleted or recreated `dist/` would make every Reload report "File path
+ * cannot be resolved" until the folder is picked again by hand.
+ */
+async function assertOutputDirectorySurvived(before: string | null): Promise<void> {
+	const after = await directoryIdentity(outputDirectory)
+	if (before === null || after === before) return
+
+	throw new Error(
+		`The build replaced ${outputDirectory} instead of emptying it. Chrome loses access ` +
+			'to a directory that is deleted or recreated, so Reload would fail with "File path ' +
+			'cannot be resolved". Delete the files inside dist/ and keep the directory itself.',
+	)
+}
+
+async function main(): Promise<void> {
+	const directoryBefore = await directoryIdentity(outputDirectory)
+
+	// The first entry point empties the shared output directory; see entryConfig.
+	for (const [index, { entry, format }] of entryPoints.entries()) {
+		await build(entryConfig(entry, format, index === 0))
 	}
 
 	await copyStaticFiles()
+	await assertOutputDirectorySurvived(directoryBefore)
 
 	if (!watching) console.log(`Built the extension into ${outputDirectory}`)
 }
