@@ -8,6 +8,7 @@
  * column is new, and it is built from the same marker the content script inserts.
  */
 
+import { ConfirmAction } from '../shared/confirm-action'
 import { prefersReducedMotion, requireButton, requireElement, requireTextArea } from '../shared/dom'
 import { activeMarkClass, collectMarkElements, createMarkedFragment } from '../shared/hidden-character-mark'
 import { LocalInspection } from '../shared/inspect-session'
@@ -22,12 +23,12 @@ import {
 	countLabel,
 	describeFocus,
 	focusLabel,
+	groupReport,
 	plural,
-	renderCharacters,
-	renderKinds,
 	renderLegend,
+	renderReportGroups,
 } from '../shared/report-view'
-import { splitTextByHiddenCharacters, stripHiddenCharacters } from '../shared/hidden-character-scan'
+import { splitTextByMarkedCharacters, stripHiddenCharacters } from '../shared/hidden-character-scan'
 
 const session = new LocalInspection()
 
@@ -36,8 +37,7 @@ const markedElement = requireElement('marked')
 const countElement = requireElement('count')
 const countLabelElement = requireElement('count-label')
 const subtitleElement = requireElement('subtitle')
-const kindsElement = requireElement('kinds')
-const charactersElement = requireElement('characters')
+const groupsElement = requireElement('groups')
 const revealButton = requireButton('reveal')
 const removeButton = requireButton('remove')
 const previousButton = requireButton('previous')
@@ -51,14 +51,23 @@ const legendElement = requireElement('legend')
 const renderDelayMs = 150
 
 let total = 0
+let shownCharacters = 0
+let shownCodePoints: ReadonlySet<number> = new Set()
 let renderTimer: ReturnType<typeof setTimeout> | null = null
 
-revealButton.addEventListener('click', () => {
-	runCommand(session.isRevealed ? messageType.hide : messageType.reveal)
+/** Remove edits the text for good, so it asks first, exactly as the popup does. */
+const removeAction = new ConfirmAction({
+	trigger: removeButton,
+	panel: requireElement('remove-confirm'),
+	confirmButton: requireButton('remove-confirm-yes'),
+	cancelButton: requireButton('remove-confirm-no'),
+	onConfirm: () => {
+		runCommand(messageType.remove)
+	},
 })
 
-removeButton.addEventListener('click', () => {
-	runCommand(messageType.remove)
+revealButton.addEventListener('click', () => {
+	runCommand(isFullyShown() ? messageType.hide : messageType.reveal)
 })
 
 previousButton.addEventListener('click', () => {
@@ -115,8 +124,8 @@ async function takePendingText(): Promise<string | null> {
 	return null
 }
 
-function runCommand(type: CommandType): void {
-	const response = session.run(type)
+function runCommand(type: CommandType, codePoint?: number): void {
+	const response = session.run(type, codePoint)
 	if (!response.ok) return
 
 	// Remove is the one command that changes the text rather than the view, so the
@@ -127,18 +136,38 @@ function runCommand(type: CommandType): void {
 	renderScan(response, type)
 }
 
+/** Whether every finding in the text is currently marked. */
+function isFullyShown(): boolean {
+	return total > 0 && shownCharacters >= total
+}
+
+/** Turn one code point on or off, and let the fresh scan redraw the toggles. */
+function toggleCodePoint(codePoint: number): void {
+	const type = shownCodePoints.has(codePoint) ? messageType.hideCodePoint : messageType.revealCodePoint
+	runCommand(type, codePoint)
+}
+
 function renderScan(response: Extract<CommandResponse, { ok: true }>, type: CommandType): void {
-	const { report, sources, focus } = response.scan
+	const { report, sources, revealedCharacters, revealedCodePoints, focus } = response.scan
 
 	total = report.total
+	shownCharacters = revealedCharacters
+	shownCodePoints = new Set(revealedCodePoints)
+
 	countElement.textContent = String(report.total)
 	countLabelElement.textContent = countLabel(report.total)
 	subtitleElement.textContent = describeFindings(report.total, sources)
 	statusElement.textContent = describeChange(type, response.changed) || describeFocus(focus)
 	focusElement.textContent = focusLabel(focus)
 
-	renderKinds(kindsElement, report.byRule)
-	renderCharacters(charactersElement, report.byCodePoint)
+	removeAction.close()
+
+	renderReportGroups(groupsElement, groupReport(report), {
+		isRevealed: (codePoint) => shownCodePoints.has(codePoint),
+		onToggle: (codePoint) => {
+			toggleCodePoint(codePoint)
+		},
+	})
 
 	renderMarkedColumn()
 	highlightFocusedMark(session.isRevealed ? focus : null)
@@ -154,6 +183,8 @@ function describeChange(type: CommandType, changed: number): string {
 	if (type === messageType.remove) return `Removed ${plural(changed, 'character')}.`
 	if (type === messageType.reveal) return 'Marked every hidden character.'
 	if (type === messageType.hide) return 'Showing the text unmarked.'
+	if (type === messageType.revealCodePoint) return `Marked ${plural(changed, 'character')}.`
+	if (type === messageType.hideCodePoint) return `Unmarked ${plural(changed, 'character')}.`
 	return ''
 }
 
@@ -170,7 +201,11 @@ function renderMarkedColumn(): void {
 	markedElement.classList.remove('ii-inspect__marked--empty')
 
 	if (session.isRevealed) {
-		markedElement.append(createMarkedFragment(splitTextByHiddenCharacters(inputElement.value)))
+		markedElement.append(
+			createMarkedFragment(
+				splitTextByMarkedCharacters(inputElement.value, (codePoint) => shownCodePoints.has(codePoint)),
+			),
+		)
 	} else {
 		markedElement.textContent = inputElement.value
 	}
@@ -208,10 +243,12 @@ async function copyCleanedText(): Promise<void> {
 function updateButtons(): void {
 	const usable = total > 0
 
-	revealButton.textContent = session.isRevealed ? 'Hide' : 'Show'
+	revealButton.textContent = isFullyShown() ? 'Hide all' : 'Show all'
 	revealButton.disabled = !usable
 	removeButton.disabled = !usable
 	previousButton.disabled = !usable
 	nextButton.disabled = !usable
 	copyButton.disabled = inputElement.value === ''
+
+	if (!usable) removeAction.close()
 }

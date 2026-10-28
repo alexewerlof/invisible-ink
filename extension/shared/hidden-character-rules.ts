@@ -21,11 +21,30 @@ export const severity = {
 /** One of the severity groups a rule can belong to. */
 export type Severity = (typeof severity)[keyof typeof severity]
 
+/**
+ * The severity groups in the order the report shows them: the findings that are
+ * almost certainly deliberate first, the harmless ones last.
+ *
+ * Written out rather than derived from `severity`, because object key order is
+ * an implementation detail and the report should not reorder itself if the
+ * object is ever rewritten.
+ */
+export const severityOrder = [
+	severity.hidden,
+	severity.ambiguous,
+	severity.spacing,
+] as const satisfies readonly Severity[]
+
 /** Display names for the severity groups, used by the popup. */
 export const severityLabel: Record<Severity, string> = {
 	[severity.hidden]: 'Invisible',
 	[severity.ambiguous]: 'Often legitimate',
 	[severity.spacing]: 'Space variant',
+}
+
+/** Whether an untrusted value, such as a `data-` attribute, names a severity group. */
+export function isSeverity(value: unknown): value is Severity {
+	return typeof value === 'string' && (severityOrder as readonly string[]).includes(value)
 }
 
 /** An inclusive pair of code points. */

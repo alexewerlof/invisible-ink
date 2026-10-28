@@ -14,14 +14,14 @@ import { messageType, type CommandType, type ScanResult } from '../extension/sha
 /** Two findings on two lines: a zero-width space and a no-break space. */
 const sample = 'first\u200Bline\nsecond\u00A0line\nplain line'
 
-function scanAfter(session: LocalInspection, type: CommandType): ScanResult {
-	const response = session.run(type)
+function scanAfter(session: LocalInspection, type: CommandType, codePoint?: number): ScanResult {
+	const response = session.run(type, codePoint)
 	if (!response.ok) throw new Error('a local command never fails')
 	return response.scan
 }
 
-function changedBy(session: LocalInspection, type: CommandType): number {
-	const response = session.run(type)
+function changedBy(session: LocalInspection, type: CommandType, codePoint?: number): number {
+	const response = session.run(type, codePoint)
 	if (!response.ok) throw new Error('a local command never fails')
 	return response.changed
 }
@@ -58,6 +58,45 @@ describe('LocalInspection', () => {
 
 		expect(scanAfter(session, messageType.reveal).revealedCharacters).toBe(2)
 		expect(session.isRevealed).toBe(true)
+	})
+
+	it('marks and unmarks one code point without touching the others', () => {
+		const session = new LocalInspection(sample)
+
+		expect(changedBy(session, messageType.hideCodePoint, 0x200b)).toBe(1)
+
+		const afterHiding = scanAfter(session, messageType.scan)
+		expect(afterHiding.revealedCodePoints).toEqual([0x00a0])
+		expect(afterHiding.revealedCharacters).toBe(1)
+		expect(afterHiding.report.total, 'hiding never changes the findings').toBe(2)
+
+		expect(changedBy(session, messageType.revealCodePoint, 0x200b)).toBe(1)
+		expect(scanAfter(session, messageType.scan).revealedCodePoints).toEqual([0x00a0, 0x200b])
+	})
+
+	it("leaves the reader's choice alone when they walk the findings", () => {
+		const session = new LocalInspection(sample)
+		session.run(messageType.hideCodePoint, 0x200b)
+
+		const scan = scanAfter(session, messageType.focusFirst)
+
+		expect(scan.revealedCodePoints, 'stepping does not switch the hidden kind back on').toEqual([0x00a0])
+		expect(scan.focus).toEqual({ index: 0, total: 1 })
+	})
+
+	it('refuses a per-character command that names no code point', () => {
+		const response = new LocalInspection(sample).run(messageType.hideCodePoint)
+
+		expect(response.ok).toBe(false)
+	})
+
+	it('marks every finding again after new text arrives', () => {
+		const session = new LocalInspection(sample)
+		session.run(messageType.hide)
+
+		session.setText('another\u200Btext')
+
+		expect(scanAfter(session, messageType.scan).revealedCodePoints).toEqual([0x200b])
 	})
 
 	it('reveals the text when the reader starts walking the findings', () => {

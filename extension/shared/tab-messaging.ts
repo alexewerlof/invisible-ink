@@ -7,7 +7,7 @@
  * try once more.
  */
 
-import { isCommandResponse, type CommandResponse, type CommandType } from './message-contract'
+import { isCommandResponse, type CommandRequest, type CommandResponse } from './message-contract'
 
 /** Where the built detector lives inside the extension. */
 const contentScriptFile = 'content/hidden-character-detector.js'
@@ -98,10 +98,9 @@ export class UninspectablePageError extends Error {
  */
 export async function requestInTab(
 	tabId: number,
-	type: CommandType,
+	request: CommandRequest,
 	{ frameId = mainFrameId }: RequestTarget = {},
 ): Promise<CommandResponse> {
-	const request = { type }
 	const options = { frameId }
 
 	let answer: unknown

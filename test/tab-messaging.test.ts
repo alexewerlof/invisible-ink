@@ -24,6 +24,7 @@ const emptyScanAnswer: CommandResponse = {
 		report: { total: 0, byRule: [], byCodePoint: [] },
 		sources: 0,
 		revealedCharacters: 0,
+		revealedCodePoints: [],
 		focus: null,
 	},
 }
@@ -87,7 +88,7 @@ describe('requestInTab', () => {
 			scripting: { executeScript: () => Promise.reject(new Error('Cannot access contents of the page.')) },
 		})
 
-		await expect(requestInTab(1, messageType.scan)).rejects.toBeInstanceOf(UninspectablePageError)
+		await expect(requestInTab(1, { type: messageType.scan })).rejects.toBeInstanceOf(UninspectablePageError)
 	})
 
 	it('injects the detector and asks again when nothing was listening', async () => {
@@ -99,9 +100,23 @@ describe('requestInTab', () => {
 
 		vi.stubGlobal('chrome', { tabs: { sendMessage }, scripting: { executeScript } })
 
-		await expect(requestInTab(1, messageType.scan)).resolves.toBe(emptyScanAnswer)
+		await expect(requestInTab(1, { type: messageType.scan })).resolves.toBe(emptyScanAnswer)
 		expect(sendMessage).toHaveBeenCalledTimes(2)
 		expect(executeScript).toHaveBeenCalledTimes(1)
+	})
+
+	it('forwards the code point of a per-character command', async () => {
+		const sendMessage = vi.fn<() => Promise<unknown>>().mockResolvedValue(emptyScanAnswer)
+
+		vi.stubGlobal('chrome', { tabs: { sendMessage }, scripting: { executeScript: () => Promise.resolve([]) } })
+
+		await requestInTab(1, { type: messageType.hideCodePoint, codePoint: 0x200b })
+
+		expect(sendMessage).toHaveBeenCalledWith(
+			1,
+			{ type: messageType.hideCodePoint, codePoint: 0x200b },
+			{ frameId: 0 },
+		)
 	})
 
 	it('keeps an unrecognisable answer an ordinary error', async () => {
@@ -110,6 +125,6 @@ describe('requestInTab', () => {
 			scripting: { executeScript: () => Promise.resolve([]) },
 		})
 
-		await expect(requestInTab(1, messageType.scan)).rejects.toThrow('unexpected response')
+		await expect(requestInTab(1, { type: messageType.scan })).rejects.toThrow('unexpected response')
 	})
 })

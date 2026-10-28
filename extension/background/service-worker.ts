@@ -125,7 +125,7 @@ async function handleContextMenuClick(
 	const target: RequestTarget = info.frameId === undefined ? {} : { frameId: info.frameId }
 
 	try {
-		await requestInTab(tab.id, type, target)
+		await requestInTab(tab.id, { type }, target)
 	} catch (error) {
 		console.warn(`[Invisible Ink] "${String(info.menuItemId)}" is not available on this page`, error)
 	}

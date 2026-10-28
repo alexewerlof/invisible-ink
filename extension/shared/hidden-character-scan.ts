@@ -154,6 +154,42 @@ export function splitTextByHiddenCharacters(text: string): Segment[] {
 	return segments
 }
 
+/**
+ * Split a string the way `splitTextByHiddenCharacters` does, but leave the
+ * hidden characters the caller did not select inside the surrounding text.
+ *
+ * The reader reveals one code point at a time, so a text node has to be split
+ * into the characters they switched on and everything else — including the
+ * hidden characters they left switched off. Adjacent text is merged back into
+ * one segment, so a filtered split never yields two text segments in a row.
+ */
+export function splitTextByMarkedCharacters(text: string, isSelected: (codePoint: number) => boolean): Segment[] {
+	const segments: Segment[] = []
+
+	for (const segment of splitTextByHiddenCharacters(text)) {
+		if (segment.kind === segmentKind.hiddenCharacter && isSelected(segment.codePoint)) {
+			segments.push(segment)
+			continue
+		}
+
+		appendTextSegment(segments, segment.value)
+	}
+
+	return segments
+}
+
+/** Append ordinary text, folding it into the segment before it when that is text too. */
+function appendTextSegment(segments: Segment[], value: string): void {
+	const previous = segments.at(-1)
+
+	if (previous?.kind === segmentKind.text) {
+		segments[segments.length - 1] = { kind: segmentKind.text, value: previous.value + value }
+		return
+	}
+
+	segments.push({ kind: segmentKind.text, value })
+}
+
 /** Count the hidden-character segments of a split string. */
 export function countHiddenCharacters(segments: readonly Segment[]): number {
 	let count = 0

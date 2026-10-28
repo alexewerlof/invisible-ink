@@ -92,10 +92,32 @@ export function collectMarkElements(root: ParentNode = document): HTMLElement[] 
 	return [...root.querySelectorAll<HTMLElement>(markSelector)]
 }
 
+/** Whether an element is one of our markers. */
+export function isMarkElement(element: Element): element is HTMLElement {
+	return element.classList.contains(markBlock)
+}
+
+/** What a marker replaced: the character itself and its code point. */
+export interface MarkedCharacter {
+	readonly value: string
+	readonly codePoint: number
+}
+
+/** Read the character a marker kept, or `null` when it holds nothing usable. */
+export function readMarkedCharacter(mark: HTMLElement): MarkedCharacter | null {
+	const value = mark.dataset[markCharacterAttribute]
+	if (value === undefined) return null
+
+	const codePoint = value.codePointAt(0)
+	if (codePoint === undefined) return null
+
+	return { value, codePoint }
+}
+
 /** What a removed marker leaves behind: a space if it stood in for one. */
 export function markReplacement(mark: HTMLElement): string {
-	const codePoint = mark.dataset[markCharacterAttribute]?.codePointAt(0)
-	const rule = codePoint === undefined ? null : ruleForCodePoint(codePoint)
+	const marked = readMarkedCharacter(mark)
+	const rule = marked === null ? null : ruleForCodePoint(marked.codePoint)
 	return rule !== null && isSpaceSubstitute(rule) ? ' ' : ''
 }
 

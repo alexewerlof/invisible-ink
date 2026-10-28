@@ -13,6 +13,7 @@ import {
 	scanText,
 	segmentKind,
 	splitTextByHiddenCharacters,
+	splitTextByMarkedCharacters,
 	stripHiddenCharacters,
 } from '../extension/shared/hidden-character-scan'
 import {
@@ -159,6 +160,46 @@ describe('splitTextByHiddenCharacters', () => {
 	it('marks each finding with the rule that matched it', () => {
 		expect(splitTextByHiddenCharacters('\u{E0100}')).toMatchObject([
 			{ kind: segmentKind.hiddenCharacter, codePoint: 0xe0100, rule: { id: 'variation-selector' } },
+		])
+	})
+})
+
+describe('splitTextByMarkedCharacters', () => {
+	it('marks only the code points the caller selected', () => {
+		const segments = splitTextByMarkedCharacters('a\u200Bb\u00A0c', (codePoint) => codePoint === 0x200b)
+
+		expect(segments).toMatchObject([
+			{ kind: segmentKind.text, value: 'a' },
+			{ kind: segmentKind.hiddenCharacter, codePoint: 0x200b, rule: { id: 'zero-width-space' } },
+			{ kind: segmentKind.text, value: 'b\u00A0c' },
+		])
+	})
+
+	it('keeps the original text recoverable and never yields two text segments in a row', () => {
+		const text = 'a\u200B\u00A0b'
+		const segments = splitTextByMarkedCharacters(text, (codePoint) => codePoint === 0x00a0)
+
+		expect(segments.map((segment) => segment.kind)).toEqual([
+			segmentKind.text,
+			segmentKind.hiddenCharacter,
+			segmentKind.text,
+		])
+		expect(segments.map((segment) => segment.value).join('')).toBe(text)
+	})
+
+	it('leaves the whole string as text when nothing is selected', () => {
+		expect(splitTextByMarkedCharacters('a\u200B\u00A0b', () => false)).toEqual([
+			{ kind: segmentKind.text, value: 'a\u200B\u00A0b' },
+		])
+	})
+
+	it('selects astral code points the same way the scanner counts them', () => {
+		const segments = splitTextByMarkedCharacters('a\u{E0001}b', (codePoint) => codePoint === 0xe0001)
+
+		expect(segments).toMatchObject([
+			{ kind: segmentKind.text, value: 'a' },
+			{ kind: segmentKind.hiddenCharacter, codePoint: 0xe0001, rule: { id: 'unicode-tags' } },
+			{ kind: segmentKind.text, value: 'b' },
 		])
 	})
 })

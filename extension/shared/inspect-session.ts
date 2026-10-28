@@ -12,6 +12,7 @@ import { nextMarkIndex } from './hidden-character-mark'
 import { scanText, stripHiddenCharacters } from './hidden-character-scan'
 import {
 	messageType,
+	requiresCodePoint,
 	type CommandResponse,
 	type CommandType,
 	type FocusState,
@@ -32,15 +33,16 @@ function countAffectedLines(text: string): number {
 export class LocalInspection {
 	private text: string
 	/**
-	 * The marked view starts on: showing the text with its hidden characters
-	 * marked is the whole point of this surface, so the reader does not have to
-	 * ask for it. The button then offers to hide the markers.
+	 * The code points the marked view is showing, and so the reader has switched
+	 * on. Marking the text is the point of this surface, so everything present
+	 * starts selected.
 	 */
-	private revealed = true
+	private selection = new Set<number>()
 	private focusedIndex = -1
 
 	constructor(text = '') {
 		this.text = text
+		this.resetSelection()
 	}
 
 	/** The text as it stands now, which is what the caller writes back to its field. */
@@ -48,38 +50,75 @@ export class LocalInspection {
 		return this.text
 	}
 
-	/** Whether the marked view is showing. */
+	/** Whether anything is marked. */
 	get isRevealed(): boolean {
-		return this.revealed
+		return this.selection.size > 0
 	}
 
-	private readonly commands: Record<CommandType, () => number> = {
+	private readonly commands: Record<CommandType, (codePoint?: number) => number> = {
 		[messageType.scan]: () => 0,
-		[messageType.reveal]: () => this.setRevealed(true),
-		[messageType.hide]: () => this.setRevealed(false),
+		[messageType.reveal]: () => this.revealAll(),
+		[messageType.hide]: () => this.hideAll(),
+		[messageType.revealCodePoint]: (codePoint) => this.revealCodePoint(codePoint),
+		[messageType.hideCodePoint]: (codePoint) => this.hideCodePoint(codePoint),
 		[messageType.remove]: () => this.removeAll(),
 		[messageType.focusFirst]: () => this.focus(0),
 		[messageType.focusNext]: () => this.focus(1),
 		[messageType.focusPrevious]: () => this.focus(-1),
 	}
 
-	/** Start over with new text, keeping the reader's reveal choice but dropping the highlight. */ setText(
-		text: string,
-	): void {
+	/**
+	 * Start over with new text, marking every finding in it and dropping the
+	 * highlight. Marking is this surface's default, so a new paste does not arrive
+	 * hidden just because the previous text had been hidden.
+	 */
+	setText(text: string): void {
 		this.text = text
 		this.focusedIndex = -1
+		this.resetSelection()
 	}
 
 	/** Run one command and answer in the shape both report panels render. */
-	run(type: CommandType): CommandResponse {
-		const changed = this.commands[type]()
+	run(type: CommandType, codePoint?: number): CommandResponse {
+		// The detector's guard rejects this before the command arrives; here the
+		// same rule has to be enforced locally, because the inspector calls the
+		// session directly.
+		if (requiresCodePoint(type) && codePoint === undefined) {
+			return { ok: false, reason: `${type} needs a code point.` }
+		}
+
+		const changed = this.commands[type](codePoint)
 		return { ok: true, changed, scan: this.snapshot() }
 	}
 
-	private setRevealed(revealed: boolean): number {
-		this.revealed = revealed
-		if (!revealed) this.focusedIndex = -1
-		return 0
+	/** Select everything the text contains, so every finding is marked. */
+	private revealAll(): number {
+		const changed = this.count() - this.revealedCount()
+		this.resetSelection()
+		return changed
+	}
+
+	/** Unselect everything, so the text reads as it is. */
+	private hideAll(): number {
+		const changed = this.revealedCount()
+		this.selection.clear()
+		this.focusedIndex = -1
+		return changed
+	}
+
+	private revealCodePoint(codePoint?: number): number {
+		if (codePoint === undefined || this.selection.has(codePoint)) return 0
+
+		this.selection.add(codePoint)
+		return this.countOf(codePoint)
+	}
+
+	private hideCodePoint(codePoint?: number): number {
+		if (codePoint === undefined || !this.selection.has(codePoint)) return 0
+
+		this.selection.delete(codePoint)
+		this.focusedIndex = -1
+		return this.countOf(codePoint)
 	}
 
 	/** Delete every finding, putting an ordinary space back where one stood in for a space. */
@@ -87,6 +126,7 @@ export class LocalInspection {
 		const changed = this.count()
 		this.text = stripHiddenCharacters(this.text)
 		this.focusedIndex = -1
+		this.resetSelection()
 		return changed
 	}
 
@@ -96,30 +136,55 @@ export class LocalInspection {
 	 * around at either end.
 	 */
 	private focus(step: number): number {
-		this.revealed = true
+		// As on a page, walking the findings is not "show everything": a reader who
+		// turned one kind off keeps that choice while they step through the rest.
+		const changed = this.selection.size === 0 ? this.revealAll() : 0
+		const total = this.revealedCount()
 
-		const total = this.count()
 		if (total === 0) {
 			this.focusedIndex = -1
-			return 0
+			return changed
 		}
 
 		this.focusedIndex = step === 0 ? 0 : nextMarkIndex(this.focusedIndex, step, total)
-		return 0
+		return changed
+	}
+
+	/** Select the findings that are present, which is what a fresh text starts with. */
+	private resetSelection(): void {
+		this.selection = new Set(scanText(this.text).byCodePoint.map((entry) => entry.codePoint))
 	}
 
 	private count(): number {
 		return scanText(this.text).total
 	}
 
+	private countOf(codePoint: number): number {
+		const entry = scanText(this.text).byCodePoint.find((candidate) => candidate.codePoint === codePoint)
+		return entry?.count ?? 0
+	}
+
+	/** How many occurrences are currently marked. */
+	private revealedCount(): number {
+		let total = 0
+
+		for (const entry of scanText(this.text).byCodePoint) {
+			if (this.selection.has(entry.codePoint)) total += entry.count
+		}
+
+		return total
+	}
+
 	private snapshot(): ScanResult {
 		const report = scanText(this.text)
+		const revealedCharacters = this.revealedCount()
 
 		return {
 			report,
 			sources: countAffectedLines(this.text),
-			revealedCharacters: this.revealed ? report.total : 0,
-			focus: this.readFocus(report.total),
+			revealedCharacters,
+			revealedCodePoints: [...this.selection].sort((left, right) => left - right),
+			focus: this.readFocus(revealedCharacters),
 		}
 	}
 

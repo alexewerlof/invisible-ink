@@ -38,7 +38,8 @@ compliance pass before calling the change done.
 | `extension/shared/hidden-character-scan.ts`  | Pure text helpers: scan, split, count, strip, merge                                         |
 | `extension/shared/hidden-character-mark.ts`  | The marker: its class names, the descriptor and element builders, and the mark index step   |
 | `extension/shared/inspect-session.ts`        | `LocalInspection`: the popup's command vocabulary run over a string the caller owns         |
-| `extension/shared/report-view.ts`            | The report panel's renderers, shared by the popup and the inspector                         |
+| `extension/shared/report-view.ts`            | The report panel's group model and renderers, shared by the popup and the inspector         |
+| `extension/shared/confirm-action.ts`         | The two-step confirmation behind Remove, shared by the popup and the inspector              |
 | `extension/shared/message-contract.ts`       | Message type strings and payload types shared by all contexts                               |
 | `extension/shared/tab-messaging.ts`          | Sending a command to a tab: injection as a fallback, browser-owned origins refused up front |
 | `extension/shared/theme.ts`                  | The severity palette shared by the markers, popup and badge                                 |
@@ -79,7 +80,36 @@ compliance pass before calling the change done.
   message boundary as `any`, so narrow with those guards instead of a cast or a disable
   comment — the lint configuration treats an unsafe `any` as an error.
 - **Every command answers with a fresh scan.** The popup renders only from the response it
-  just received, so it never shows a stale count. Keep the `{ ok, changed, scan }` shape.
+  just received, so it never shows a stale count. Keep the `{ ok, changed, scan }` shape, and
+  keep `scan.revealedCodePoints` in it: that list is what tells the panel which character
+  toggles are on.
+- **The page owns what is revealed, per code point.** `revealCodePoint` and `hideCodePoint`
+  name one code point and act on all of its occurrences; `reveal` and `hide` are the
+  "everything" forms. The detector keeps the revealed set, because the popup is rebuilt every
+  time it opens and only the page still knows which markers exist. A toggle in the panel is
+  just a command — there is no second source of truth for what is showing.
+- **Hide restores the document exactly.** Revealing a text node records a run
+  (`parent`, the original `Text` node, the nodes that replaced it) in `revealRuns`, and hiding
+  a whole intact run re-inserts that same node and removes the replacements, so node identity,
+  node count and text all come back. Runs are restored newest first, because a later reveal can
+  split a node an earlier run inserted. A run the page moved is marked `degraded` and can only be
+  rebuilt marker by marker; hiding only _part_ of an intact run restores it whole and then
+  re-reveals what stays selected, so node identity survives arbitrary toggling. A run is removed
+  from `revealRuns` the moment it is restored; leaving it behind makes the next Hide count the
+  same characters twice. Do not go back to plain `mark.replaceWith(character)`, which restores
+  the text but leaves every reveal's split behind.
+- **The report is grouped, and every character is a checkbox.** `groupReport` puts each rule
+  under its severity, and `renderReportGroups` draws one `<details>` per non-empty group: emoji,
+  group name and group total in the summary, then the rules and one labelled checkbox per code
+  point inside, with the occurrence count in a severity-coloured badge. A checkbox rather than
+  a button because the reader is choosing what to show, and its `checked` state is the only
+  record of that choice. Both surfaces draw from those two functions. The renderer rebuilds
+  wholesale on every scan, so it carries over which groups were open and re-focuses the
+  checkbox the reader just used — without that, a click would collapse its own group.
+- **Remove is the only destructive action.** Show and Hide only change the view; Remove deletes
+  characters from the page and nothing brings them back. That is why Remove is a quiet trigger
+  behind `ConfirmAction` rather than the peer of Show, and why the confirmation closes again on
+  the next scan.
 - **Navigation belongs to the page.** Show/Prev/Next send `focusFirst`/`focusPrevious`/
   `focusNext`, which reveal the page if it is still hidden and then scroll one marker into
   view, highlighted with the `ii-hidden-character--active` modifier and wrapped at either
@@ -157,10 +187,12 @@ ordinary text, round-tripping a split). Add a case to `test/hidden-character-sca
 you add a rule or change a helper.
 
 `LocalInspection` runs purely on strings, so the inspector's whole command surface — scanning,
-revealing, walking the findings with wrapping, and Remove's space substitution — is covered from
-Node in `test/inspect-session.test.ts`. `test/hidden-character-mark.test.ts` covers the marker
-descriptor and the index step; the element itself only exists in a document, so it is checked in the
-browser pass below.
+revealing, walking the findings with wrapping, per-code-point marking and Remove's space
+substitution — is covered from Node in `test/inspect-session.test.ts`. `test/report-view.test.ts`
+covers the grouping (`groupReport`) without a DOM; the accordion and its checkbox rows are
+checked in the browser pass below. `test/hidden-character-mark.test.ts` covers the marker
+descriptor and the index step; the element itself only exists in a document, so it is checked in
+the browser pass below.
 
 `npm run check-build` verifies the built extension instead of the sources: every path the
 manifest points at exists, the manifest and `package.json` agree on the version, the icons

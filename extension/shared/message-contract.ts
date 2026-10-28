@@ -8,7 +8,7 @@
  * honest without reaching for a type assertion.
  */
 
-import { CHARACTER_RULES, severity, type RuleId, type Severity } from './hidden-character-rules'
+import { CHARACTER_RULES, isSeverity, type RuleId } from './hidden-character-rules'
 import type { CodePointCount, RuleCount, HiddenCharacterReport } from './hidden-character-scan'
 
 const namespace = 'invisible-ink'
@@ -24,6 +24,10 @@ export const messageType = {
 	reveal: `${namespace}:reveal`,
 	/** Put the markers back to the characters they replaced. */
 	hide: `${namespace}:hide`,
+	/** Reveal the occurrences of one code point, leaving every other finding as text. */
+	revealCodePoint: `${namespace}:reveal-code-point`,
+	/** Put one code point's markers back, leaving every other finding revealed. */
+	hideCodePoint: `${namespace}:hide-code-point`,
 	/** Delete every hidden character and marker. */
 	remove: `${namespace}:remove`,
 	/** Reveal the page if it is still hidden, then jump to the first finding. */
@@ -53,6 +57,8 @@ export const commandTypes = [
 	messageType.scan,
 	messageType.reveal,
 	messageType.hide,
+	messageType.revealCodePoint,
+	messageType.hideCodePoint,
 	messageType.remove,
 	messageType.focusFirst,
 	messageType.focusNext,
@@ -62,9 +68,30 @@ export const commandTypes = [
 /** One of the commands a page detector answers. */
 export type CommandType = (typeof commandTypes)[number]
 
+/**
+ * The commands that act on a single code point, and so have to carry one.
+ *
+ * Listed separately so the guard can reject a request that names a code point
+ * command but forgets the code point, instead of leaving every handler to check.
+ */
+export const codePointCommandTypes = [
+	messageType.revealCodePoint,
+	messageType.hideCodePoint,
+] as const satisfies readonly CommandType[]
+
+/** The subset of `CommandType` that needs a `codePoint` payload. */
+export type CodePointCommandType = (typeof codePointCommandTypes)[number]
+
+/** Whether a command acts on a single code point. */
+export function requiresCodePoint(type: CommandType): type is CodePointCommandType {
+	return (codePointCommandTypes as readonly string[]).includes(type)
+}
+
 /** A command sent to a page detector. */
 export interface CommandRequest {
 	readonly type: CommandType
+	/** The code point a per-character command acts on. Required for those commands. */
+	readonly codePoint?: number
 }
 
 /**
@@ -87,6 +114,8 @@ export interface ScanResult {
 	readonly sources: number
 	/** How many findings are currently visible as markers. */
 	readonly revealedCharacters: number
+	/** Which code points are currently visible as markers, ascending. */
+	readonly revealedCodePoints: readonly number[]
 	/** The highlighted finding, or `null` while nothing is highlighted. */
 	readonly focus: FocusState | null
 }
@@ -129,8 +158,10 @@ export interface PendingTextResponse {
 }
 
 const knownRuleIds = new Set<string>(CHARACTER_RULES.map((rule) => rule.id))
-const knownSeverities = new Set<string>(Object.values(severity))
 const knownCommands = new Set<string>(commandTypes)
+
+/** The highest code point Unicode defines, which is the widest a `codePoint` may be. */
+const maxCodePoint = 0x10ffff
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null
@@ -148,8 +179,13 @@ function isRuleId(value: unknown): value is RuleId {
 	return isString(value) && knownRuleIds.has(value)
 }
 
-function isSeverity(value: unknown): value is Severity {
-	return isString(value) && knownSeverities.has(value)
+function isCommandType(value: unknown): value is CommandType {
+	return isString(value) && knownCommands.has(value)
+}
+
+/** A Unicode code point, which is what a per-character command names. */
+function isCodePoint(value: unknown): value is number {
+	return isCount(value) && value <= maxCodePoint
 }
 
 function isRuleCount(value: unknown): value is RuleCount {
@@ -195,12 +231,14 @@ function isFocusState(value: unknown): value is FocusState {
 function isScanResult(value: unknown): value is ScanResult {
 	if (!isRecord(value)) return false
 
-	const { report, sources, revealedCharacters, focus } = value
+	const { report, sources, revealedCharacters, revealedCodePoints, focus } = value
 
 	return (
 		isHiddenCharacterReport(report) &&
 		isCount(sources) &&
 		isCount(revealedCharacters) &&
+		Array.isArray(revealedCodePoints) &&
+		revealedCodePoints.every(isCodePoint) &&
 		(focus === null || isFocusState(focus))
 	)
 }
@@ -209,9 +247,14 @@ function isScanResult(value: unknown): value is ScanResult {
 export function isCommandRequest(value: unknown): value is CommandRequest {
 	if (!isRecord(value)) return false
 
-	const { type } = value
+	const { type, codePoint } = value
+	if (!isCommandType(type)) return false
 
-	return isString(type) && knownCommands.has(type)
+	// A per-character command without a code point is a caller bug, and answering
+	// it as if it were "reveal everything" would hide that bug from the reader.
+	if (requiresCodePoint(type)) return isCodePoint(codePoint)
+
+	return codePoint === undefined || isCodePoint(codePoint)
 }
 
 /** Narrow a detector's answer, which crosses the message channel as `any`. */

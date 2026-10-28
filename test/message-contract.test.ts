@@ -8,26 +8,54 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+	codePointCommandTypes,
 	commandTypes,
 	isCommandRequest,
 	isCommandResponse,
 	isPendingTextRequest,
 	isPendingTextResponse,
 	messageType,
+	requiresCodePoint,
+	type CommandType,
 	type ScanResult,
 } from '../extension/shared/message-contract'
 
 const emptyReport = { total: 0, byRule: [], byCodePoint: [] } as const
 
 function scanResult(overrides: Partial<ScanResult> = {}): ScanResult {
-	return { report: emptyReport, sources: 0, revealedCharacters: 0, focus: null, ...overrides }
+	return { report: emptyReport, sources: 0, revealedCharacters: 0, revealedCodePoints: [], focus: null, ...overrides }
+}
+
+/** A request for a command, with the code point the per-character commands need. */
+function requestFor(type: CommandType): { type: CommandType; codePoint?: number } {
+	return requiresCodePoint(type) ? { type, codePoint: 0x200b } : { type }
 }
 
 describe('isCommandRequest', () => {
 	it('accepts every command', () => {
 		for (const type of commandTypes) {
-			expect(isCommandRequest({ type }), type).toBe(true)
+			expect(isCommandRequest(requestFor(type)), type).toBe(true)
 		}
+	})
+
+	it('rejects a per-character command without a code point', () => {
+		for (const type of codePointCommandTypes) {
+			expect(isCommandRequest({ type }), type).toBe(false)
+		}
+	})
+
+	it('rejects a code point that Unicode does not define', () => {
+		const type = messageType.revealCodePoint
+
+		expect(isCommandRequest({ type, codePoint: -1 })).toBe(false)
+		expect(isCommandRequest({ type, codePoint: 1.5 })).toBe(false)
+		expect(isCommandRequest({ type, codePoint: 0x110000 })).toBe(false)
+		expect(isCommandRequest({ type, codePoint: 'U+200B' })).toBe(false)
+	})
+
+	it('accepts a code point on a command that does not need one, and still checks it', () => {
+		expect(isCommandRequest({ type: messageType.scan, codePoint: 0x200b })).toBe(true)
+		expect(isCommandRequest({ type: messageType.scan, codePoint: -1 })).toBe(false)
 	})
 
 	it('rejects the messages that are not commands', () => {
@@ -56,7 +84,17 @@ describe('isCommandResponse', () => {
 	})
 
 	it('rejects a scan that is missing the focus field', () => {
-		const scan = { report: emptyReport, sources: 0, revealedCharacters: 0 }
+		const scan = { report: emptyReport, sources: 0, revealedCharacters: 0, revealedCodePoints: [] }
+		expect(isCommandResponse({ ok: true, changed: 0, scan })).toBe(false)
+	})
+
+	it('rejects a scan that does not say which code points are revealed', () => {
+		const scan = { report: emptyReport, sources: 0, revealedCharacters: 0, focus: null }
+		expect(isCommandResponse({ ok: true, changed: 0, scan })).toBe(false)
+	})
+
+	it('rejects a revealed code point that Unicode does not define', () => {
+		const scan = scanResult({ revealedCodePoints: [0x200b, 0x110000] })
 		expect(isCommandResponse({ ok: true, changed: 0, scan })).toBe(false)
 	})
 

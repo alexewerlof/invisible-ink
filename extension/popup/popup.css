@@ -150,63 +150,222 @@
 	font-size: 12px;
 }
 
-.ii-panel__kinds:empty,
-.ii-panel__characters:empty {
+.ii-panel__groups:empty {
 	display: none;
 }
 
-.ii-panel__kinds {
-	margin: 12px 0 0;
-	padding: 0;
+.ii-panel__groups {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-top: 12px;
+}
+
+.ii-panel__group {
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background-color: var(--surface-raised);
+}
+
+/*
+ * A `<details>` summary is a flex row here so the emoji, the name and the count
+ * line up across groups. That also removes the native disclosure triangle, so
+ * the chevron at the end is drawn by the rule below.
+ */
+.ii-panel__group-summary {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 10px;
+	border-radius: 8px;
+	cursor: pointer;
 	list-style: none;
 }
 
-.ii-panel__kind {
+.ii-panel__group-summary::-webkit-details-marker {
+	display: none;
+}
+
+.ii-panel__group-summary:hover {
+	background-color: var(--surface);
+}
+
+.ii-panel__group-summary::after {
+	content: '';
+	flex: 0 0 auto;
+	width: 6px;
+	height: 6px;
+	margin-right: 2px;
+	border-right: 1.5px solid var(--text-muted);
+	border-bottom: 1.5px solid var(--text-muted);
+	transform: rotate(45deg);
+	transition: transform 120ms ease;
+}
+
+.ii-panel__group[open] > .ii-panel__group-summary::after {
+	transform: rotate(225deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.ii-panel__group-summary::after {
+		transition: none;
+	}
+}
+
+.ii-panel__group-emoji {
+	flex: 0 0 auto;
+	font-size: 12px;
+	line-height: 1;
+}
+
+.ii-panel__group-title {
+	font-weight: 600;
+}
+
+.ii-panel__group--hidden .ii-panel__group-title {
+	color: var(--hidden);
+}
+
+.ii-panel__group--ambiguous .ii-panel__group-title {
+	color: var(--ambiguous);
+}
+
+.ii-panel__group--spacing .ii-panel__group-title {
+	color: var(--spacing);
+}
+
+.ii-panel__group-count {
+	margin-left: auto;
+	color: var(--text-muted);
+	font-size: 12px;
+	font-variant-numeric: tabular-nums;
+}
+
+.ii-panel__group-body {
+	padding: 0 10px 10px;
+	border-top: 1px solid var(--border);
+}
+
+.ii-panel__group-description {
+	margin: 8px 0 0;
+	color: var(--text-muted);
+	font-size: 11px;
+}
+
+.ii-panel__rule {
+	margin-top: 10px;
+}
+
+.ii-panel__rule-name {
 	display: flex;
 	align-items: baseline;
 	justify-content: space-between;
 	gap: 8px;
-	padding: 4px 0;
-	border-bottom: 1px solid var(--border);
+	margin: 0;
+	font-size: 12px;
+	font-weight: 600;
 }
 
-.ii-panel__kind-name {
-	color: var(--text);
-}
-
-.ii-panel__kind-count {
+.ii-panel__rule-count {
 	color: var(--text-muted);
+	font-size: 11px;
 	font-variant-numeric: tabular-nums;
 }
 
-.ii-panel__kind--hidden .ii-panel__kind-name {
-	color: var(--hidden);
-}
-
-.ii-panel__kind--ambiguous .ii-panel__kind-name {
-	color: var(--ambiguous);
-}
-
-.ii-panel__kind--spacing .ii-panel__kind-name {
-	color: var(--spacing);
-}
-
-.ii-panel__characters {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 6px;
-	margin: 12px 0 0;
-	padding: 0;
-	list-style: none;
-}
-
-.ii-panel__character {
-	padding: 2px 6px;
-	border: 1px solid var(--border);
-	border-radius: 4px;
+.ii-panel__rule-note {
+	margin: 2px 0 0;
 	color: var(--text-muted);
+	font-size: 11px;
+}
+
+.ii-panel__toggles {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	margin-top: 6px;
+}
+
+/*
+ * One row per character: a checkbox, the code point, and the count in a badge.
+ * The whole row is the label, so the text is part of the click target, and the
+ * checkbox itself carries the state — no second class records what is on.
+ */
+.ii-panel__toggle {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 3px 4px;
+	border-radius: 5px;
+	cursor: pointer;
+}
+
+.ii-panel__toggle:hover {
+	background-color: var(--surface);
+}
+
+.ii-panel__toggle-input {
+	flex: 0 0 auto;
+	width: 13px;
+	height: 13px;
+	margin: 0;
+	cursor: pointer;
+}
+
+.ii-panel__group--hidden .ii-panel__toggle-input {
+	accent-color: var(--hidden);
+}
+
+.ii-panel__group--ambiguous .ii-panel__toggle-input {
+	accent-color: var(--ambiguous);
+}
+
+.ii-panel__group--spacing .ii-panel__toggle-input {
+	accent-color: var(--spacing);
+}
+
+.ii-panel__toggle-code {
+	color: var(--text);
 	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 	font-size: 11px;
+}
+
+/* A cleared box means the page still has the character, so the label steps back. */
+.ii-panel__toggle:has(.ii-panel__toggle-input:not(:checked)) .ii-panel__toggle-code {
+	color: var(--text-muted);
+}
+
+/*
+ * The count badge: a circle in the group's severity colour, with the surface
+ * colour for its digits. That pairing stays legible in both schemes, because the
+ * severity colour is dark on the light surface and light on the dark one.
+ */
+.ii-panel__toggle-count {
+	flex: 0 0 auto;
+	min-width: 17px;
+	height: 17px;
+	margin-left: auto;
+	padding: 0 5px;
+	box-sizing: border-box;
+	border-radius: 999px;
+	background-color: var(--text-muted);
+	color: var(--surface);
+	font-size: 10px;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	line-height: 17px;
+	text-align: center;
+}
+
+.ii-panel__group--hidden .ii-panel__toggle-count {
+	background-color: var(--hidden);
+}
+
+.ii-panel__group--ambiguous .ii-panel__toggle-count {
+	background-color: var(--ambiguous);
+}
+
+.ii-panel__group--spacing .ii-panel__toggle-count {
+	background-color: var(--spacing);
 }
 
 .ii-panel__actions {
@@ -239,6 +398,41 @@
 .ii-panel__button--primary {
 	border-color: var(--accent);
 	color: var(--accent);
+}
+
+/* The destructive action, kept quiet until the reader goes looking for it. */
+.ii-panel__button--danger {
+	border-color: var(--hidden);
+	color: var(--hidden);
+}
+
+.ii-panel__danger {
+	margin-top: 16px;
+	padding-top: 12px;
+	border-top: 1px solid var(--border);
+}
+
+.ii-panel__danger .ii-panel__button {
+	width: 100%;
+}
+
+.ii-panel__confirm {
+	margin-top: 8px;
+}
+
+.ii-panel__confirm[hidden] {
+	display: none;
+}
+
+.ii-panel__confirm-text {
+	margin: 0 0 8px;
+	color: var(--text-muted);
+	font-size: 12px;
+}
+
+.ii-panel__confirm-actions {
+	display: flex;
+	gap: 8px;
 }
 
 .ii-panel__nav {
